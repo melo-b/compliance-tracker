@@ -1,0 +1,19 @@
+# Environments
+testenv/
+venv/
+env/
+
+# Environment Variables
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Docker Volumes
+postgres_data/
+
+# Uploads directory (keep the folder, ignore the files inside)
+uploads/*
+!uploads/.gitkeep

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db 
 from app.models.product import Product
-from app.schemas.product import ProductResponse, ProductCreate
+from app.schemas.product import ProductResponse, ProductCreate, ProductUpdate
 
 router = APIRouter(prefix="/api/v1/products", tags=["Products"])
 
@@ -37,3 +37,40 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Product not found")
         
     return product
+
+# 4. Update a Product (PATCH)
+@router.patch("/{product_id}", response_model=ProductResponse)
+def update_product(product_id: int, product_update: ProductUpdate, db: Session = Depends(get_db)):
+    db_product = db.query(Product).filter(Product.id == product_id).first()
+    
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+        
+    # extract only the fields the user actually sent in the request
+    update_data = product_update.model_dump(exclude_unset=True)
+    
+    # If updating the model_number, verify it doesn't conflict with an existing product
+    if "model_number" in update_data:
+        existing_product = db.query(Product).filter(Product.model_number == update_data["model_number"]).first()
+        if existing_product and existing_product.id != product_id:
+            raise HTTPException(status_code=400, detail="Model number already registered to another product")
+
+    # Apply the updates to the database model
+    for key, value in update_data.items():
+        setattr(db_product, key, value)
+        
+    db.commit()
+    db.refresh(db_product)
+    return db_product
+
+# 5. Delete a Product (DELETE)
+@router.delete("/{product_id}", status_code=204)
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    db_product = db.query(Product).filter(Product.id == product_id).first()
+    
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+        
+    db.delete(db_product)
+    db.commit()
+    return None

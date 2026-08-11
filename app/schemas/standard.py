@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from datetime import date
+from app.models.standard import StandardStatus
 
 # ==========================================
 # 1. REGULATORY STANDARD SCHEMAS
@@ -8,17 +9,23 @@ from datetime import date
 # ==========================================
 
 class StandardBase(BaseModel):
-    name: str = Field(..., description="The standard designation (e.g., IEC 62368-1, UL 508)")
-    agency: str = Field(..., description="The regulatory body or agency (e.g., CSA, UL, CE, FCC)")
-    description: Optional[str] = Field(None, description="Brief description of the safety or compliance requirements")
+    standard_number: str = Field(..., description="The official alphanumeric designation (e.g., UL 508, CSA C22.2 No. 14)")
+    title: str = Field(..., description="The formal title of the regulatory standard")
+    publication_date: Optional[date] = Field(None, description="Date the standard was published")
+    effective_date: Optional[date] = Field(None, description="Date the standard goes into effect")
+    issuing_body: str = Field(..., description="The organization issuing the standard (e.g., CSA, UL, CE)")
+    status: StandardStatus = Field(default=StandardStatus.ACTIVE, description="Current lifecycle status of the standard")
 
 class StandardCreate(StandardBase):
     pass
 
 class StandardUpdate(BaseModel):
-    name: Optional[str] = None
-    agency: Optional[str] = None
-    description: Optional[str] = None
+    standard_number: Optional[str] = None
+    title: Optional[str] = None
+    publication_date: Optional[date] = None
+    effective_date: Optional[date] = None
+    issuing_body: Optional[str] = None
+    status: Optional[StandardStatus] = None
 
 class StandardResponse(StandardBase):
     id: int

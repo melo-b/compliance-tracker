@@ -3,7 +3,13 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Date
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
-class ComplianceStatus(enum.Enum):
+
+class StandardStatus(str, enum.Enum):
+    ACTIVE = "Active"
+    PENDING = "Pending"
+    RETIRED = "Retired"
+
+class ComplianceStatus(str,enum.Enum):
     PENDING = "Pending"
     VALID = "Valid"
     EXPIRING_SOON = "Expiring Soon"
@@ -13,12 +19,15 @@ class Standard(Base):
     __tablename__ = "standards"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True, nullable=False)  
-    agency = Column(String, nullable=False)                         
-    description = Column(String, nullable=True)
+    standard_number = Column(String, unique=True, index=True, nullable=False)
+    title = Column(String, nullable=False)
+    publication_date = Column(Date, nullable=True)
+    effective_date = Column(Date, nullable=True)
+    issuing_body = Column(String, nullable=False)
+    status = Column(Enum(StandardStatus), default=StandardStatus.ACTIVE, nullable=False)
 
     # Relationships
-    compliance_records = relationship("ProductCompliance", back_populates="standard")
+    compliance_records = relationship("ProductCompliance", back_populates="standard", cascade="all, delete-orphan")
 
 class ProductCompliance(Base):
     __tablename__ = "product_compliance"

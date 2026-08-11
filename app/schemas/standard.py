@@ -1,7 +1,9 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from datetime import date
-from app.models.standard import StandardStatus
+# Added ComplianceStatus to the import
+from app.models.standard import StandardStatus, ComplianceStatus
+
 
 # ==========================================
 # 1. REGULATORY STANDARD SCHEMAS
@@ -39,7 +41,8 @@ class StandardResponse(StandardBase):
 # ==========================================
 
 class ProductComplianceBase(BaseModel):
-    status: str = Field(..., description="Current certification status (e.g., Active, Pending, Expired, Revoked)")
+    # Updated to use the Enum instead of str, with a default value
+    status: ComplianceStatus = Field(default=ComplianceStatus.PENDING, description="Current certification status")
     expiration_date: Optional[date] = Field(None, description="The exact date the certification expires, used by background workers")
 
 class ProductComplianceCreate(ProductComplianceBase):
@@ -47,7 +50,8 @@ class ProductComplianceCreate(ProductComplianceBase):
     standard_id: int = Field(..., description="The ID of the regulatory standard")
 
 class ProductComplianceUpdate(BaseModel):
-    status: Optional[str] = None
+    # Updated to use the Enum instead of str
+    status: Optional[ComplianceStatus] = None
     expiration_date: Optional[date] = None
 
 class ProductComplianceResponse(ProductComplianceBase):

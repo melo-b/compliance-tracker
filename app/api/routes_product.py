@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_db 
+from app.db.database import get_db
 from app.models.product import Product
 from app.schemas.product import ProductResponse, ProductCreate, ProductUpdate
 

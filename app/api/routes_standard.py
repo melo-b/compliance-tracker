@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_db 
+from app.db.database import get_db 
 from app.models.standard import Standard
 from app.schemas.standard import StandardResponse, StandardCreate, StandardUpdate
 

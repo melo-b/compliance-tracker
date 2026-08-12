@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api import product, routes_product, routes_standard
+from app.api import product, routes_product, routes_standard, routes_document
 
 # Import your database engine and Base
 from app.db.database import engine
@@ -18,6 +18,8 @@ app = FastAPI(title="Compliance Tracker API")
 
 app.include_router(routes_product.router)
 app.include_router(routes_standard.router)
+app.include_router(routes_document.router)
+
 
 @app.get("/")
 def read_root():

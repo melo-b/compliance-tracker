@@ -13,6 +13,7 @@ from app.schemas.standard import (
     ProductComplianceUpdate,
     ProductComplianceResponse
 )
+from app.worker.tasks import scan_expiring_compliance_records
 
 router = APIRouter(prefix="/api/v1/standards", tags=["Standards"])
 
@@ -154,3 +155,15 @@ def delete_compliance_record(record_id: int, db: Session = Depends(get_db)):
     db.delete(db_record)
     db.commit()
     return None
+
+# 6. Manually Trigger Expiry Scan (POST)
+@router.post("/compliance/scan/", status_code=202)
+def trigger_expiry_scan():
+    # .delay() is the Celery command that sends the task to Redis
+    # The API immediately returns a 202 Accepted while the worker handles the database
+    task = scan_expiring_compliance_records.delay(days_threshold=30)
+    
+    return {
+        "message": "Compliance expiry scan triggered in the background.",
+        "task_id": task.id
+    }

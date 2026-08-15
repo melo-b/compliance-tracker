@@ -1,3 +1,6 @@
+from app.models.user import User
+from app.api.dependencies import get_current_user
+
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -6,11 +9,17 @@ from app.db.database import get_db
 from app.models.product import Product
 from app.schemas.product import ProductResponse, ProductCreate, ProductUpdate
 
+
+
 router = APIRouter(prefix="/api/v1/products", tags=["Products"])
 
 # 1. Create a Product (POST)
 @router.post("/", response_model=ProductResponse, status_code=201)
-def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+def create_product(
+    product: ProductCreate, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Check for existing model number to prevent database integrity errors
     db_product = db.query(Product).filter(Product.model_number == product.model_number).first()
     if db_product:

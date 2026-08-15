@@ -1,3 +1,6 @@
+from app.models.user import User
+from app.api.dependencies import get_current_user
+
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
@@ -15,9 +18,10 @@ router = APIRouter(prefix="/api/v1/documents", tags=["Documents"])
 @router.post("/upload/", response_model=DocumentResponse, status_code=201)
 def upload_document(
     product_id: int = Form(...), 
-    standard_id: Optional[int] = Form(None), # Now accepts standard_id from the user
+    standard_id: Optional[int] = Form(None),
     file: UploadFile = File(...), 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     # Verify the product actually exists
     product = db.query(Product).filter(Product.id == product_id).first()

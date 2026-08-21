@@ -6,7 +6,9 @@ from dotenv import load_dotenv
 # Load environment variables from the .env file
 load_dotenv()
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+SQLALCHEMY_DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    "postgresql://postgres:password@localhost:5433/compliance_db")
 
 # 1. Create the Engine (The core interface to PostgreSQL)
 engine = create_engine(SQLALCHEMY_DATABASE_URL)

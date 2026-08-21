@@ -17,5 +17,31 @@ services:
     ports:
       - "6379:6379"
 
+  api:
+    build: .
+    restart: on-failure
+    ports:
+      - "8000:8000"
+    environment:
+      # This points the API to the internal Docker network
+      - DATABASE_URL=postgresql://postgres:password123@db:5432/compliance_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    restart: on-failure
+    # This overrides the default Dockerfile CMD to start the worker instead of the API
+    command: celery -A app.worker.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://postgres:password123@db:5432/compliance_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - api
+      - db
+      - redis
+
 volumes:
   postgres_data:

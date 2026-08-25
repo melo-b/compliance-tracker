@@ -12,6 +12,18 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # 1. Spin up a temporary PostgreSQL database for the CI pipeline
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: supersecret
+          POSTGRES_DB: compliance_db
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -27,6 +39,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # 2. Point the test suite to the temporary GitHub database
       - name: Run Pytest
+        env:
+          DATABASE_URL: postgresql://postgres:supersecret@localhost:5432/compliance_db
         run: |
           pytest -v

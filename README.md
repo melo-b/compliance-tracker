@@ -1,6 +1,6 @@
 # Compliance Tracker API
 
-A production-grade backend service designed to manage product safety lifecycle, regulatory standards mapping, and certification expirations for the Testing, Inspection, and Certification (TIC) industry.
+A production-grade backend service designed to manage product safety lifecycles, regulatory standards mapping, and certification expirations for the Testing, Inspection, and Certification (TIC) industry.
 
 ## 📖 Domain Context
 
@@ -14,14 +14,17 @@ This project bridges that domain expertise with scalable backend architecture, d
 * **Database:** PostgreSQL
 * **ORM & Validation:** SQLAlchemy 2.0, Pydantic V2
 * **Asynchronous Workers:** Celery + Redis (Message Broker)
+* **Security:** JWT (JSON Web Tokens), Passlib, Bcrypt
+* **Testing:** Pytest, In-Memory SQLite Fixtures
 * **Infrastructure:** Docker & Docker Compose
-* **Architecture:** Domain-Driven Design (Decoupled API, Services, and Data layers)
+
 
 ## ✨ Core Features
 
-1. **Product & Standard Mapping:** A robust relational database schema utilizing association objects to map physical products to multi-region regulatory standards.
-2. **Certificate Expiry Engine:** An asynchronous background worker queue (Celery/Redis) designed to periodically scan database records and flag expiring compliance certificates before they impact production.
-3. **Secure Document Management:** Endpoints built to handle, validate, and securely store sensitive compliance documentation and testing reports.
+1. **Zero-Trust Security:** Custom authentication engine utilizing JWTs and dependency injection to secure sensitive endpoints and validate users.
+2. **Product & Standard Mapping:** A robust relational database schema utilizing association objects to map physical products to multi-region regulatory standards.
+3. **Certificate Expiry Engine:** An asynchronous background worker queue (Celery/Redis) designed to periodically scan database records and flag expiring compliance certificates before they impact production.
+4. **Automated Quality Assurance:** A comprehensive Pytest suite featuring database override fixtures to continuously verify endpoint logic and payload validation without touching production data.
 
 ## 📂 Architecture & Project Structure
 
@@ -42,26 +45,20 @@ compliance_tracker/
 
 
 🚀 Local Development Setup
-The application is fully containerized for a seamless development experience.
+The entire application (API, Background Worker, Database, and Message Broker) is fully containerized for a seamless, single-command deployment.
 
 1. Clone the repository
-git clone [https://github.com/YOUR_USERNAME/compliance-tracker.git](https://github.com/YOUR_USERNAME/compliance-tracker.git)
+git clone [https://github.com/melo-b/compliance-tracker.git](https://github.com/melo-b/compliance-tracker.git)
 cd compliance-tracker
 
-2. Configure Environment Variables
-Create a .env file in the root directory and add the following:
-DATABASE_URL=postgresql://postgres:password123@localhost:5433/compliance_db
+2. Spin up the Infrastructure
+Build and launch the complete ecosystem using Docker Compose:
+docker-compose up -d --build 
 
-3. Spin up the Infrastructure
-Start the PostgreSQL database and Redis message broker using Docker:
-docker-compose up -d
-
-4. Run the API Server
-With your virtual environment active and dependencies installed (pip install -r requirements.txt), start the Uvicorn server:
-uvicorn app.main:app --reload
-
-5. View the Documentation
+3. View the Documentation
 Navigate to http://localhost:8000/docs in your browser to interact with the auto-generated Swagger UI documentation.
 
-*(Note: Don't forget to replace `YOUR_USERNAME` in the clone URL with your actual GitHub username before saving!)*
+4. Run the Test Suite
+To execute the automated Pytest suite against the in-memory SQLite database, run:
+pytest -v
 

@@ -2,6 +2,8 @@
 
 A production-grade backend service designed to manage product safety lifecycles, regulatory standards mapping, and certification expirations for the Testing, Inspection, and Certification (TIC) industry.
 
+🌐 **Live Demo & API Docs:** [https://compliance-api-xf2x.onrender.com/docs](https://compliance-api-xf2x.onrender.com/docs)
+
 ## 📖 Domain Context
 
 Drawing from direct experience as a Product Safety Engineer at CSA Group, this API was built to solve tangible challenges in compliance workflows. Tracking product certifications, managing evolving safety standards, and preventing certification expirations are critical bottlenecks in mechanical engineering and product manufacturing. 

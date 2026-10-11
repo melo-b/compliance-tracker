@@ -28,20 +28,29 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
 
       - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: uv sync --locked
 
       # 2. Point the test suite to the temporary GitHub database
       - name: Run Pytest
         env:
           DATABASE_URL: postgresql://postgres:supersecret@localhost:5432/compliance_db
-        run: |
-          pytest -v
+        run: uv run pytest -v
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Verifies the multi-stage uv Dockerfile still builds
+      - name: Build Docker image
+        run: docker build -t compliance-tracker:ci .

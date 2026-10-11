@@ -18,6 +18,7 @@ This project bridges that domain expertise with scalable backend architecture, d
 * **Asynchronous Workers:** Celery + Redis (Message Broker)
 * **Security:** JWT (JSON Web Tokens), Passlib, Bcrypt
 * **Testing:** Pytest, In-Memory SQLite Fixtures
+* **Tooling:** Python 3.12, uv (dependency management and lockfile), Ruff
 * **Infrastructure:** Docker & Docker Compose
 
 
@@ -61,6 +62,12 @@ docker-compose up -d --build
 Navigate to http://localhost:8000/docs in your browser to interact with the auto-generated Swagger UI documentation.
 
 4. Run the Test Suite
-To execute the automated Pytest suite against the in-memory SQLite database, run:
-pytest -v
+Dependencies are managed with uv (https://docs.astral.sh/uv/) on Python 3.12. Install them and run the Pytest suite (the tests use an in-memory SQLite database, but the app still needs DATABASE_URL to point at a running database when it is imported; copy .env.example to .env):
+uv sync
+uv run pytest -v
+
+5. Add or Update Dependencies
+uv add <package>          # runtime dependency
+uv add --dev <package>    # development dependency
+uv lock --upgrade         # refresh uv.lock
 

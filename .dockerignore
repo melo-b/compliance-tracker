@@ -1,0 +1,20 @@
+.git
+.github
+.venv
+venv
+testenv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+
+# Secrets and local config must never be baked into an image
+.env
+.env.*
+!.env.example
+
+# Uploaded files are runtime data
+uploads/*
+!uploads/.gitkeep
+
+tests

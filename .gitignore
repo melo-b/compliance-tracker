@@ -1,16 +1,19 @@
 # Environments
+.venv/
 testenv/
 venv/
 env/
 
-# Environment Variables
+# Environment Variables (keep the example file)
 .env
-.env.backup
+.env.*
+!.env.example
 
 # Python Cache
 __pycache__/
 *.pyc
 .pytest_cache/
+.ruff_cache/
 
 # Docker Volumes
 postgres_data/

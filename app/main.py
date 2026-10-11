@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api import product, routes_product, routes_standard, routes_document, routes_auth
+from app.api import routes_product, routes_standard, routes_document, routes_auth
 
 # Import your database engine and Base
 from app.db.database import engine

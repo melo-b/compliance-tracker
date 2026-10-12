@@ -1,8 +1,9 @@
-import os
 from celery import Celery
 
-# Fetches the Redis URL from your .env, or defaults to a local Docker Redis instance
-REDIS_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+from app.core.config import get_settings
+
+# Redis URL from the environment/.env, defaulting to a local Docker Redis instance
+REDIS_URL = get_settings().celery_broker_url
 
 # Initialize the Celery application
 celery_app = Celery(

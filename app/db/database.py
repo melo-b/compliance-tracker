@@ -1,17 +1,14 @@
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
 
-# Load environment variables from the .env file
-load_dotenv()
+from app.core.config import get_settings
 
-SQLALCHEMY_DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql://postgres:password@localhost:5433/compliance_db")
+SQLALCHEMY_DATABASE_URL = get_settings().database_url
 
 # 1. Create the Engine (The core interface to PostgreSQL)
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+# pool_pre_ping tests a connection before use and pool_recycle retires old ones, so connections
+# killed when a serverless database (Neon) scales to zero are replaced instead of raising errors.
+engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, pool_recycle=300)
 
 # 2. Create the Session Factory (Spawns isolated sessions for API requests)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -1,4 +1,9 @@
 
+# SECRET_KEY must be set in your shell or in a .env file next to this file (see .env.example).
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql://postgres:password123@db:5432/compliance_db
+  CELERY_BROKER_URL: redis://redis:6379/0
+  SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (see .env.example)}
 
 services:
   db:
@@ -11,6 +16,11 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d compliance_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7
@@ -23,12 +33,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # This points the API to the internal Docker network
-      - DATABASE_URL=postgresql://postgres:password123@db:5432/compliance_db
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      # This points the API to the internal Docker network. Migrations run on start.
+      <<: *app-environment
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   worker:
     build: .
@@ -36,8 +47,9 @@ services:
     # This overrides the default Dockerfile CMD to start the worker instead of the API
     command: celery -A app.worker.celery_app worker --loglevel=info
     environment:
-      - DATABASE_URL=postgresql://postgres:password123@db:5432/compliance_db
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      <<: *app-environment
+      # The API container owns migrations
+      SKIP_MIGRATIONS: "1"
     depends_on:
       - api
       - db

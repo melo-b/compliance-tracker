@@ -8,6 +8,11 @@ on:
     branches:
       - main
 
+env:
+  # Throwaway values for CI only; the Postgres service below is destroyed after each run.
+  CI_DATABASE_URL: postgresql://postgres:supersecret@localhost:5432/compliance_db
+  CI_SECRET_KEY: ci-only-secret-key-not-a-real-secret-0123456789abcdef
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -39,14 +44,39 @@ jobs:
       - name: Install Dependencies
         run: uv sync --locked
 
-      # 2. Point the test suite to the temporary GitHub database
       - name: Run Pytest
         env:
-          DATABASE_URL: postgresql://postgres:supersecret@localhost:5432/compliance_db
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          SECRET_KEY: ${{ env.CI_SECRET_KEY }}
         run: uv run pytest -v
 
-  docker-build:
+      # 2. Prove the migrations build the schema on real PostgreSQL and match the models
+      - name: Apply migrations to PostgreSQL
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          SECRET_KEY: ${{ env.CI_SECRET_KEY }}
+        run: uv run alembic upgrade head
+
+      - name: Check for schema drift
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          SECRET_KEY: ${{ env.CI_SECRET_KEY }}
+        run: uv run alembic check
+
+  docker:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: supersecret
+          POSTGRES_DB: compliance_db
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -54,3 +84,21 @@ jobs:
       # Verifies the multi-stage uv Dockerfile still builds
       - name: Build Docker image
         run: docker build -t compliance-tracker:ci .
+
+      # Verifies the container actually starts: migrations run, then the API answers
+      - name: Smoke test the container
+        run: |
+          docker run -d --name api --network host \
+            -e DATABASE_URL="$CI_DATABASE_URL" \
+            -e SECRET_KEY="$CI_SECRET_KEY" \
+            compliance-tracker:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health/ready; then
+              echo
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Container did not become ready; logs follow"
+          docker logs api
+          exit 1

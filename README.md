@@ -37,7 +37,7 @@ The codebase follows an "Inside-Out" decoupled architecture, ensuring clean sepa
 compliance_tracker/
 ├── app/
 │   ├── api/          # FastAPI routing and endpoints
-│   ├── core/         # App-wide settings and error handling
+│   ├── core/         # App-wide settings (pydantic-settings) and security helpers
 │   ├── db/           # SQLAlchemy engine and connection management
 │   ├── models/       # Database schemas (SQLAlchemy)
 │   ├── schemas/      # Data validation and serialization (Pydantic)
@@ -54,19 +54,29 @@ The entire application (API, Background Worker, Database, and Message Broker) is
 git clone [https://github.com/melo-b/compliance-tracker.git](https://github.com/melo-b/compliance-tracker.git)
 cd compliance-tracker
 
-2. Spin up the Infrastructure
-Build and launch the complete ecosystem using Docker Compose:
+2. Configure the environment
+Copy .env.example to .env and set SECRET_KEY (required, at least 32 characters). Generate one with:
+uv run python -c "import secrets; print(secrets.token_urlsafe(48))"
+
+3. Spin up the Infrastructure
+Build and launch the complete ecosystem using Docker Compose. Database migrations are applied automatically when the API container starts:
 docker-compose up -d --build 
 
-3. View the Documentation
-Navigate to http://localhost:8000/docs in your browser to interact with the auto-generated Swagger UI documentation.
+4. View the Documentation
+Navigate to http://localhost:8000/docs in your browser to interact with the auto-generated Swagger UI documentation. Health checks: GET /health (liveness) and GET /health/ready (database reachable).
 
-4. Run the Test Suite
-Dependencies are managed with uv (https://docs.astral.sh/uv/) on Python 3.12. Install them and run the Pytest suite (the tests use an in-memory SQLite database, but the app still needs DATABASE_URL to point at a running database when it is imported; copy .env.example to .env):
+5. Run the Test Suite
+Dependencies are managed with uv (https://docs.astral.sh/uv/) on Python 3.12. The tests use an in-memory SQLite database and need no running services:
 uv sync
 uv run pytest -v
 
-5. Add or Update Dependencies
+6. Database Migrations (Alembic)
+uv run alembic upgrade head                              # apply migrations
+uv run alembic revision --autogenerate -m "describe it"  # create a migration after changing a model
+uv run alembic check                                     # fail if models and migrations disagree
+Set MIGRATION_DATABASE_URL to a direct (non-pooled) connection if DATABASE_URL points at a pooler such as Neon's.
+
+7. Add or Update Dependencies
 uv add <package>          # runtime dependency
 uv add --dev <package>    # development dependency
 uv lock --upgrade         # refresh uv.lock

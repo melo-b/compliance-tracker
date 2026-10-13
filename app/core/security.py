@@ -3,13 +3,16 @@ from typing import Optional
 from jose import jwt
 from passlib.context import CryptContext
 
+from app.core.config import get_settings
+
 # ==========================================
 # CONFIGURATION
 # ==========================================
-# In a production environment, SECRET_KEY must be moved to your .env file!
-SECRET_KEY = "your-super-secret-development-key-keep-it-safe"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# Values come from the environment via app.core.config (SECRET_KEY is required).
+settings = get_settings()
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 # This tells Passlib to use the bcrypt algorithm for hashing passwords
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

@@ -1,23 +1,13 @@
 from fastapi import FastAPI
-from app.api import routes_product, routes_standard, routes_document, routes_auth
 
-# Import your database engine and Base
-from app.db.database import engine
-from app.db.base import Base
-
-# IMPORTANT: Import ALL models here so SQLAlchemy registers them 
-# before it tries to build the relationships or tables
-from app.models.product import Product
-from app.models.standard import Standard, ProductCompliance
-from app.models.document import Document
-
-from app.models.user import User 
-
-# This line tells SQLAlchemy to create the tables in PostgreSQL
-Base.metadata.create_all(bind=engine)
+# Registers every model on Base.metadata so SQLAlchemy can resolve relationships.
+# Tables are created by Alembic migrations (`alembic upgrade head`), not at import time.
+import app.models  # noqa: F401
+from app.api import routes_auth, routes_document, routes_health, routes_product, routes_standard
 
 app = FastAPI(title="Compliance Tracker API")
 
+app.include_router(routes_health.router)
 app.include_router(routes_product.router)
 app.include_router(routes_standard.router)
 app.include_router(routes_document.router)

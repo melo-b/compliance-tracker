@@ -1,5 +1,5 @@
+from app.api.dependencies import require_admin, require_engineer, require_user
 from app.models.user import User
-from app.api.dependencies import get_current_user
 
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,14 +11,19 @@ from app.schemas.product import ProductResponse, ProductCreate, ProductUpdate
 
 
 
-router = APIRouter(prefix="/api/v1/products", tags=["Products"])
+# Every route requires a logged-in user; writes additionally require a role (see README).
+router = APIRouter(
+    prefix="/api/v1/products",
+    tags=["Products"],
+    dependencies=[Depends(require_user)],
+)
 
 # 1. Create a Product (POST)
 @router.post("/", response_model=ProductResponse, status_code=201)
 def create_product(
-    product: ProductCreate, 
+    product: ProductCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_engineer),
 ):
     # Check for existing model number to prevent database integrity errors
     db_product = db.query(Product).filter(Product.model_number == product.model_number).first()
@@ -48,7 +53,9 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     return product
 
 # 4. Update a Product (PATCH)
-@router.patch("/{product_id}", response_model=ProductResponse)
+@router.patch(
+    "/{product_id}", response_model=ProductResponse, dependencies=[Depends(require_engineer)]
+)
 def update_product(product_id: int, product_update: ProductUpdate, db: Session = Depends(get_db)):
     db_product = db.query(Product).filter(Product.id == product_id).first()
     
@@ -73,7 +80,7 @@ def update_product(product_id: int, product_update: ProductUpdate, db: Session =
     return db_product
 
 # 5. Delete a Product (DELETE)
-@router.delete("/{product_id}", status_code=204)
+@router.delete("/{product_id}", status_code=204, dependencies=[Depends(require_admin)])
 def delete_product(product_id: int, db: Session = Depends(get_db)):
     db_product = db.query(Product).filter(Product.id == product_id).first()
     

@@ -1,13 +1,20 @@
+import os
+
+# Settings are read when the app is first imported, so provide test values up front.
+# The database is never actually contacted: tests override get_db with an in-memory SQLite DB.
+os.environ.setdefault("SECRET_KEY", "test-only-secret-key-not-for-production-0123456789")
+os.environ.setdefault("DATABASE_URL", "sqlite:///./unused-test.db")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.main import app
-from app.db.database import get_db
-from app.db.base import Base
 from app.api.dependencies import get_current_user
+from app.db.base import Base
+from app.db.database import get_db
+from app.main import app
 from app.models.user import User
 
 # 1. Setup in-memory SQLite database for fast, isolated testing
@@ -42,6 +49,7 @@ def client(db_session):
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
         yield c
+    app.dependency_overrides.clear()
         
 # 4. Authorized Client Fixture (Authenticated)
 @pytest.fixture(scope="function")

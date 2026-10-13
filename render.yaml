@@ -3,9 +3,12 @@ services:
     name: compliance-api
     env: docker
     plan: free
+    # Migrations run automatically from the image's entrypoint before uvicorn starts.
     dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
         sync: false
       - key: CELERY_BROKER_URL
         sync: false
@@ -16,7 +19,11 @@ services:
     plan: free
     dockerCommand: celery -A app.worker.celery_app worker --loglevel=info
     envVars:
+      - key: SKIP_MIGRATIONS
+        value: "1"
       - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
         sync: false
       - key: CELERY_BROKER_URL
         sync: false

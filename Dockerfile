@@ -36,5 +36,9 @@ USER appuser
 
 EXPOSE 8000
 
+# Applies database migrations (unless SKIP_MIGRATIONS=1), then runs the command below
+# or any command a platform supplies (e.g. Render's dockerCommand).
+ENTRYPOINT ["sh", "/app/docker/entrypoint.sh"]
+
 # The default command to start the API
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

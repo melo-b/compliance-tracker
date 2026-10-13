@@ -11,7 +11,6 @@ dependencies = [
     "psycopg2-binary>=2.9.12",
     "pydantic[email]>=2.13.4",
     "python-multipart>=0.0.32",
-    "python-dotenv>=1.2.2",
     "celery>=5.6.3",
     "redis>=8.0.1",
     # Auth libraries are swapped for pwdlib + PyJWT in Phase 2.
@@ -19,6 +18,8 @@ dependencies = [
     "passlib>=1.7.4",
     # passlib 1.7.4 is incompatible with newer bcrypt releases.
     "bcrypt==3.2.2",
+    "pydantic-settings>=2.15.0",
+    "alembic>=1.20.0",
 ]
 
 [dependency-groups]
@@ -40,3 +41,7 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B"]
 # B008: FastAPI's Depends(...) in argument defaults is the framework's idiom.
 ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+# The repo has an ./alembic folder; the import below is the installed package.
+known-third-party = ["alembic"]

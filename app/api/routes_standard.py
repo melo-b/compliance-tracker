@@ -2,7 +2,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.database import get_db 
+from app.api.dependencies import require_admin, require_engineer, require_user
+from app.db.database import get_db
 from app.models.standard import Standard, ProductCompliance
 from app.models.product import Product
 from app.schemas.standard import (
@@ -15,10 +16,17 @@ from app.schemas.standard import (
 )
 from app.worker.tasks import scan_expiring_compliance_records
 
-router = APIRouter(prefix="/api/v1/standards", tags=["Standards"])
+# Every route requires a logged-in user; writes additionally require a role (see README).
+router = APIRouter(
+    prefix="/api/v1/standards",
+    tags=["Standards"],
+    dependencies=[Depends(require_user)],
+)
 
 # 1. Create a Standard (POST)
-@router.post("/", response_model=StandardResponse, status_code=201)
+@router.post(
+    "/", response_model=StandardResponse, status_code=201, dependencies=[Depends(require_admin)]
+)
 def create_standard(standard: StandardCreate, db: Session = Depends(get_db)):
     db_standard = db.query(Standard).filter(Standard.standard_number == standard.standard_number).first()
     if db_standard:
@@ -47,7 +55,9 @@ def get_standard(standard_id: int, db: Session = Depends(get_db)):
     return standard
 
 # 4. Update a Standard (PATCH)
-@router.patch("/{standard_id}", response_model=StandardResponse)
+@router.patch(
+    "/{standard_id}", response_model=StandardResponse, dependencies=[Depends(require_admin)]
+)
 def update_standard(standard_id: int, standard_update: StandardUpdate, db: Session = Depends(get_db)):
     db_standard = db.query(Standard).filter(Standard.id == standard_id).first()
     
@@ -69,7 +79,7 @@ def update_standard(standard_id: int, standard_update: StandardUpdate, db: Sessi
     return db_standard
 
 # 5. Delete a Standard (DELETE)
-@router.delete("/{standard_id}", status_code=204)
+@router.delete("/{standard_id}", status_code=204, dependencies=[Depends(require_admin)])
 def delete_standard(standard_id: int, db: Session = Depends(get_db)):
     db_standard = db.query(Standard).filter(Standard.id == standard_id).first()
     
@@ -88,7 +98,12 @@ def delete_standard(standard_id: int, db: Session = Depends(get_db)):
 # ==========================================
 
 # 1. Create a Compliance Record (POST)
-@router.post("/compliance/", response_model=ProductComplianceResponse, status_code=201)
+@router.post(
+    "/compliance/",
+    response_model=ProductComplianceResponse,
+    status_code=201,
+    dependencies=[Depends(require_engineer)],
+)
 def create_compliance_record(record: ProductComplianceCreate, db: Session = Depends(get_db)):
     # Verify the product exists
     product = db.query(Product).filter(Product.id == record.product_id).first()
@@ -128,7 +143,11 @@ def get_product_compliance(product_id: int, db: Session = Depends(get_db)):
     return records
 
 # 4. Update a Compliance Record (PATCH)
-@router.patch("/compliance/{record_id}", response_model=ProductComplianceResponse)
+@router.patch(
+    "/compliance/{record_id}",
+    response_model=ProductComplianceResponse,
+    dependencies=[Depends(require_engineer)],
+)
 def update_compliance_record(record_id: int, record_update: ProductComplianceUpdate, db: Session = Depends(get_db)):
     db_record = db.query(ProductCompliance).filter(ProductCompliance.id == record_id).first()
     
@@ -145,7 +164,9 @@ def update_compliance_record(record_id: int, record_update: ProductComplianceUpd
     return db_record
 
 # 5. Delete a Compliance Record (DELETE)
-@router.delete("/compliance/{record_id}", status_code=204)
+@router.delete(
+    "/compliance/{record_id}", status_code=204, dependencies=[Depends(require_admin)]
+)
 def delete_compliance_record(record_id: int, db: Session = Depends(get_db)):
     db_record = db.query(ProductCompliance).filter(ProductCompliance.id == record_id).first()
     
@@ -157,7 +178,7 @@ def delete_compliance_record(record_id: int, db: Session = Depends(get_db)):
     return None
 
 # 6. Manually Trigger Expiry Scan (POST)
-@router.post("/compliance/scan/", status_code=202)
+@router.post("/compliance/scan/", status_code=202, dependencies=[Depends(require_admin)])
 def trigger_expiry_scan():
     # .delay() is the Celery command that sends the task to Redis
     # The API immediately returns a 202 Accepted while the worker handles the database

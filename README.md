@@ -16,7 +16,7 @@ This project bridges that domain expertise with scalable backend architecture, d
 * **Database:** PostgreSQL
 * **ORM & Validation:** SQLAlchemy 2.0, Pydantic V2
 * **Asynchronous Workers:** Celery + Redis (Message Broker)
-* **Security:** JWT (JSON Web Tokens), Passlib, Bcrypt
+* **Security:** JWT (PyJWT), Argon2id password hashing (pwdlib), role-based access control
 * **Testing:** Pytest, In-Memory SQLite Fixtures
 * **Tooling:** Python 3.12, uv (dependency management and lockfile), Ruff
 * **Infrastructure:** Docker & Docker Compose
@@ -24,10 +24,30 @@ This project bridges that domain expertise with scalable backend architecture, d
 
 ## ✨ Core Features
 
-1. **Zero-Trust Security:** Custom authentication engine utilizing JWTs and dependency injection to secure sensitive endpoints and validate users.
+1. **Secure by Default:** Every route requires a valid JWT unless it is explicitly public, and writes are restricted by role (Admin / Engineer / Read-only). A test fails if a new route forgets authentication.
 2. **Product & Standard Mapping:** A robust relational database schema utilizing association objects to map physical products to multi-region regulatory standards.
 3. **Certificate Expiry Engine:** An asynchronous background worker queue (Celery/Redis) designed to periodically scan database records and flag expiring compliance certificates before they impact production.
 4. **Automated Quality Assurance:** A comprehensive Pytest suite featuring database override fixtures to continuously verify endpoint logic and payload validation without touching production data.
+
+## 🔐 Roles & Permissions
+
+New accounts are created as **Read-only**. An admin promotes them. Roles are checked against the database on every request, so a role change or deactivation applies immediately, even to tokens already issued.
+
+| Action | Admin | Engineer | Read-only |
+|---|:-:|:-:|:-:|
+| View products, standards, compliance records, documents | ✅ | ✅ | ✅ |
+| Create / edit products and compliance records, upload documents | ✅ | ✅ | ❌ |
+| Delete products, compliance records | ✅ | ❌ | ❌ |
+| Create / edit / delete standards | ✅ | ❌ | ❌ |
+| Trigger the expiry scan, list users, change roles, deactivate users | ✅ | ❌ | ❌ |
+
+Public endpoints: `POST /api/v1/auth/register/`, `POST /api/v1/auth/login/`, `GET /health`, `GET /health/ready` and `GET /`. Passwords must be 12-128 characters and are stored as Argon2id hashes (older bcrypt hashes are upgraded at the next login).
+
+**Creating the first admin** (the public registration endpoint can never create one). Run this against the target database; the password is prompted for, or read from the `ADMIN_PASSWORD` environment variable, and is never passed as an argument. If the email already exists, that account is promoted instead:
+
+```bash
+uv run python -m app.scripts.create_admin --email you@example.com
+```
 
 ## 📂 Architecture & Project Structure
 

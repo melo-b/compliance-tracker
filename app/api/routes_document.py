@@ -1,5 +1,5 @@
+from app.api.dependencies import require_engineer, require_user
 from app.models.user import User
-from app.api.dependencies import get_current_user
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -12,7 +12,12 @@ from app.models.standard import Standard
 from app.schemas.document import DocumentResponse
 from app.services.file_handler import save_upload_file
 
-router = APIRouter(prefix="/api/v1/documents", tags=["Documents"])
+# Every route requires a logged-in user; uploading additionally requires an engineer or admin.
+router = APIRouter(
+    prefix="/api/v1/documents",
+    tags=["Documents"],
+    dependencies=[Depends(require_user)],
+)
 
 # 1. Upload a Document
 @router.post("/upload/", response_model=DocumentResponse, status_code=201)
@@ -21,7 +26,7 @@ def upload_document(
     standard_id: Optional[int] = Form(None),
     file: UploadFile = File(...), 
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_engineer),
 ):
     # Verify the product actually exists
     product = db.query(Product).filter(Product.id == product_id).first()

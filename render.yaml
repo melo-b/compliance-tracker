@@ -3,8 +3,10 @@ services:
     name: compliance-api
     env: docker
     plan: free
-    # Migrations run automatically from the image's entrypoint before uvicorn starts.
-    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Render's Docker Command replaces the image's ENTRYPOINT as well as CMD, and the free plan
+    # has no Pre-Deploy Command. So this command runs the entrypoint script itself: it applies
+    # database migrations, then starts uvicorn on Render's $PORT.
+    dockerCommand: sh /app/docker/entrypoint.sh uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
         sync: false

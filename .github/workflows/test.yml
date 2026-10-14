@@ -102,3 +102,31 @@ jobs:
           echo "Container did not become ready; logs follow"
           docker logs api
           exit 1
+
+      # Render replaces the image's ENTRYPOINT and CMD with its own Docker Command (see
+      # render.yaml). Reproduce that: bypass the entrypoint, run the same command through a
+      # shell with $PORT set, and require that migrations still run.
+      - name: Smoke test the container the way Render starts it
+        run: |
+          docker rm -f api >/dev/null 2>&1 || true
+          docker run -d --name render-like --network host \
+            -e PORT=10000 \
+            -e DATABASE_URL="$CI_DATABASE_URL" \
+            -e SECRET_KEY="$CI_SECRET_KEY" \
+            --entrypoint sh compliance-tracker:ci \
+            -c "sh /app/docker/entrypoint.sh uvicorn app.main:app --host 0.0.0.0 --port \$PORT"
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:10000/health/ready; then
+              echo
+              if ! docker logs render-like 2>&1 | grep -q "Applying database migrations"; then
+                echo "The migrations step did not run; logs follow"
+                docker logs render-like
+                exit 1
+              fi
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Container did not become ready; logs follow"
+          docker logs render-like
+          exit 1

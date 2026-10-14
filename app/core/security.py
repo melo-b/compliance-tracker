@@ -1,50 +1,65 @@
-from datetime import datetime, timedelta, timezone
-from typing import Optional
-from jose import jwt
-from passlib.context import CryptContext
+from datetime import UTC, datetime, timedelta
+
+import jwt
+from pwdlib import PasswordHash
+from pwdlib.exceptions import UnknownHashError
+from pwdlib.hashers.argon2 import Argon2Hasher
+from pwdlib.hashers.bcrypt import BcryptHasher
 
 from app.core.config import get_settings
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
-# Values come from the environment via app.core.config (SECRET_KEY is required).
 settings = get_settings()
-SECRET_KEY = settings.secret_key
-ALGORITHM = settings.algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
-
-# This tells Passlib to use the bcrypt algorithm for hashing passwords
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ==========================================
-# PASSWORD HASHING UTILITIES
+# PASSWORD HASHING
 # ==========================================
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Checks if a plain text password matches the hashed version in the DB."""
-    return pwd_context.verify(plain_password, hashed_password)
+# New hashes use Argon2id (the first hasher). Existing bcrypt hashes still verify, and
+# verify_password() reports a replacement hash so they are upgraded at the next login.
+password_hash = PasswordHash((Argon2Hasher(), BcryptHasher()))
 
-def get_password_hash(password: str) -> str:
-    """Converts a plain text password into a secure bcrypt hash."""
-    return pwd_context.hash(password)
+# Verified against when a login names an unknown email, so response time does not reveal
+# whether the account exists.
+DUMMY_PASSWORD_HASH = password_hash.hash("not-a-real-password")
+
+
+def hash_password(password: str) -> str:
+    """Converts a plain text password into a salted Argon2id hash."""
+    return password_hash.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> tuple[bool, str | None]:
+    """Checks a password against a stored hash.
+
+    Returns (is_valid, upgraded_hash). upgraded_hash is a replacement to store when the
+    stored hash uses an outdated algorithm or settings, otherwise None.
+    """
+    try:
+        return password_hash.verify_and_update(plain_password, hashed_password)
+    except UnknownHashError:
+        return False, None
+
 
 # ==========================================
-# JWT GENERATION
+# JWT
 # ==========================================
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """Creates a digitally signed JSON Web Token."""
-    to_encode = data.copy()
-    
-    # Set the expiration time
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        
-    # Add the expiration time to the payload under the standard 'exp' claim
-    to_encode.update({"exp": expire})
-    
-    # Sign and encode the token using the secret key
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    
-    return encoded_jwt
+def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
+    """Creates a signed JWT identifying the user (by id) with an expiry."""
+    expire = datetime.now(UTC) + (
+        expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
+    )
+    payload = {"sub": subject, "exp": expire, "iat": datetime.now(UTC)}
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
+def decode_access_token(token: str) -> dict:
+    """Verifies the signature and expiry and returns the claims.
+
+    Raises jwt.InvalidTokenError (including ExpiredSignatureError) for any bad token. The
+    algorithm is pinned and exp/sub are mandatory, so unsigned or incomplete tokens fail.
+    """
+    return jwt.decode(
+        token,
+        settings.secret_key,
+        algorithms=[settings.algorithm],
+        options={"require": ["exp", "sub"]},
+    )

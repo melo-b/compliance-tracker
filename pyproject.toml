@@ -13,13 +13,10 @@ dependencies = [
     "python-multipart>=0.0.32",
     "celery>=5.6.3",
     "redis>=8.0.1",
-    # Auth libraries are swapped for pwdlib + PyJWT in Phase 2.
-    "python-jose>=3.5.0",
-    "passlib>=1.7.4",
-    # passlib 1.7.4 is incompatible with newer bcrypt releases.
-    "bcrypt==3.2.2",
     "pydantic-settings>=2.15.0",
     "alembic>=1.20.0",
+    "pwdlib[argon2,bcrypt]>=0.3.1",
+    "pyjwt>=2.15.1",
 ]
 
 [dependency-groups]

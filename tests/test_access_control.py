@@ -33,6 +33,7 @@ MATRIX = [
     ("GET", "/api/v1/standards/compliance/product/1", ANY),
     ("POST", "/api/v1/standards/compliance/", ENGINEER_UP),
     ("PATCH", "/api/v1/standards/compliance/1", ENGINEER_UP),
+    ("POST", "/api/v1/standards/compliance/1/transition", ENGINEER_UP),
     ("DELETE", "/api/v1/standards/compliance/1", ADMIN_ONLY),
     ("POST", "/api/v1/standards/compliance/scan/", ADMIN_ONLY),
     # documents

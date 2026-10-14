@@ -1,18 +1,27 @@
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
+from kombu.exceptions import OperationalError as BrokerUnavailableError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_admin, require_engineer, require_user
 from app.db.database import get_db
-from app.models.standard import Standard, ProductCompliance
 from app.models.product import Product
+from app.models.standard import ProductCompliance, Standard
+from app.models.user import User
 from app.schemas.standard import (
-    StandardResponse, 
-    StandardCreate,
-    StandardUpdate,
     ProductComplianceCreate,
+    ProductComplianceResponse,
     ProductComplianceUpdate,
-    ProductComplianceResponse
+    StandardCreate,
+    StandardResponse,
+    StandardUpdate,
+    WorkflowTransition,
+)
+from app.services.compliance_logic import (
+    InvalidTransitionError,
+    TransitionNotPermittedError,
+    check_transition,
 )
 from app.worker.tasks import scan_expiring_compliance_records
 
@@ -156,14 +165,48 @@ def update_compliance_record(record_id: int, record_update: ProductComplianceUpd
         
     update_data = record_update.model_dump(exclude_unset=True)
 
+    # The dates must stay in order once the change is merged into what is already stored
+    issued = update_data.get("issued_date", db_record.issued_date)
+    expires = update_data.get("expiration_date", db_record.expiration_date)
+    if issued is not None and expires is not None and expires < issued:
+        raise HTTPException(
+            status_code=422, detail="expiration_date cannot be before issued_date"
+        )
+
     for key, value in update_data.items():
         setattr(db_record, key, value)
-        
+
     db.commit()
     db.refresh(db_record)
     return db_record
 
-# 5. Delete a Compliance Record (DELETE)
+# 5. Move a Compliance Record Through the Workflow (POST)
+# Pending -> Draft -> Final, one step at a time. Only admins may move a record backward.
+@router.post("/compliance/{record_id}/transition", response_model=ProductComplianceResponse)
+def transition_compliance_record(
+    record_id: int,
+    transition: WorkflowTransition,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_engineer),
+):
+    db_record = db.query(ProductCompliance).filter(ProductCompliance.id == record_id).first()
+
+    if not db_record:
+        raise HTTPException(status_code=404, detail="Compliance record not found")
+
+    try:
+        check_transition(db_record.workflow_status, transition.target, current_user.role)
+    except TransitionNotPermittedError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from None
+    except InvalidTransitionError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+
+    db_record.workflow_status = transition.target
+    db.commit()
+    db.refresh(db_record)
+    return db_record
+
+# 6. Delete a Compliance Record (DELETE)
 @router.delete(
     "/compliance/{record_id}", status_code=204, dependencies=[Depends(require_admin)]
 )
@@ -177,13 +220,20 @@ def delete_compliance_record(record_id: int, db: Session = Depends(get_db)):
     db.commit()
     return None
 
-# 6. Manually Trigger Expiry Scan (POST)
+# 7. Manually Trigger the Expiry Report (POST)
 @router.post("/compliance/scan/", status_code=202, dependencies=[Depends(require_admin)])
 def trigger_expiry_scan():
     # .delay() is the Celery command that sends the task to Redis
-    # The API immediately returns a 202 Accepted while the worker handles the database
-    task = scan_expiring_compliance_records.delay(days_threshold=30)
-    
+    # The API immediately returns a 202 Accepted while the worker builds the report. The
+    # window defaults to the EXPIRING_SOON_DAYS setting.
+    try:
+        task = scan_expiring_compliance_records.delay()
+    except BrokerUnavailableError:
+        # e.g. the hosted demo, where no Redis broker or worker is running
+        raise HTTPException(
+            status_code=503, detail="The background task queue is not available"
+        ) from None
+
     return {
         "message": "Compliance expiry scan triggered in the background.",
         "task_id": task.id

@@ -9,11 +9,12 @@ class StandardStatus(str, enum.Enum):
     PENDING = "Pending"
     RETIRED = "Retired"
 
-class ComplianceStatus(str,enum.Enum):
-    PENDING = "Pending"
-    VALID = "Valid"
-    EXPIRING_SOON = "Expiring Soon"
-    EXPIRED = "Expired"
+class WorkflowStatus(enum.StrEnum):
+    """Where a certification project stands. Moves forward one step at a time."""
+
+    PENDING = "Pending"  # waiting on the agency
+    DRAFT = "Draft"  # certificate drafted, not yet issued
+    FINAL = "Final"  # certificate issued
 
 class Standard(Base):
     __tablename__ = "standards"
@@ -36,8 +37,19 @@ class ProductCompliance(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     standard_id = Column(Integer, ForeignKey("standards.id"), nullable=False)
     
-    status = Column(Enum(ComplianceStatus), default=ComplianceStatus.PENDING, nullable=False)
+    workflow_status = Column(
+        Enum(WorkflowStatus),
+        default=WorkflowStatus.PENDING,
+        server_default=WorkflowStatus.PENDING.name,
+        nullable=False,
+    )
+    certificate_number = Column(String, nullable=True)
+    issued_date = Column(Date, nullable=True)
     expiration_date = Column(Date, nullable=True)
+    agency = Column(String, nullable=True)
+    # Validity (Valid / Expiring Soon / Expired) is deliberately not stored: it is computed from
+    # expiration_date and today's date (see app/services/compliance_logic.py), so it can never
+    # be stale.
 
     # Relationships
     product = relationship("Product", back_populates="compliance_records")

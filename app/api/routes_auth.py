@@ -5,17 +5,14 @@ from sqlalchemy.orm import Session
 from app.core.security import create_access_token
 from app.db.database import get_db
 from app.schemas.user import Token, UserCreate, UserResponse
-from app.services.users import authenticate_user, create_user, get_user_by_email
+from app.services.users import authenticate_user, register_user
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 # 1. Register a new user (always created as READ_ONLY; an admin can promote them)
 @router.post("/register/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    if get_user_by_email(db, user.email):
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    return create_user(db, email=user.email, password=user.password)
+def register(user: UserCreate, db: Session = Depends(get_db)):
+    return register_user(db, email=user.email, password=user.password)
 
 # 2. Login to get an access token
 @router.post("/login/", response_model=Token)

@@ -7,6 +7,7 @@ import enum
 from datetime import UTC, date, datetime
 
 from app.core.config import get_settings
+from app.core.exceptions import AppError
 from app.models.standard import WorkflowStatus
 from app.models.user import UserRole
 
@@ -63,16 +64,22 @@ def compute_validity(
 _ORDER = [WorkflowStatus.PENDING, WorkflowStatus.DRAFT, WorkflowStatus.FINAL]
 
 
-class WorkflowError(Exception):
+class WorkflowError(AppError):
     """Base class for rejected workflow transitions."""
 
 
 class InvalidTransitionError(WorkflowError):
-    """The requested move is not allowed from the current status (maps to HTTP 409)."""
+    """The requested move is not allowed from the current status."""
+
+    status_code = 409
+    code = "invalid_transition"
 
 
 class TransitionNotPermittedError(WorkflowError):
-    """The user's role may not make this move (maps to HTTP 403)."""
+    """The user's role may not make this move."""
+
+    status_code = 403
+    code = "transition_not_permitted"
 
 
 def check_transition(current: WorkflowStatus, target: WorkflowStatus, role: UserRole) -> None:

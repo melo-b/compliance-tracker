@@ -1,63 +1,80 @@
-from app.api.dependencies import require_engineer, require_user
-from app.models.user import User
-
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import require_admin, require_engineer, require_user
 from app.db.database import get_db
-from app.models.document import Document
-from app.models.product import Product
-from app.models.standard import Standard
 from app.schemas.document import DocumentResponse
-from app.services.file_handler import save_upload_file
+from app.schemas.pagination import Page, PageParams, make_page, pagination
+from app.services import documents as document_service
+from app.services.storage import CHUNK_SIZE, Storage, get_storage
 
-# Every route requires a logged-in user; uploading additionally requires an engineer or admin.
+# Every route requires a logged-in user; uploading additionally requires an engineer or admin
+# and deleting requires an admin.
 router = APIRouter(
     prefix="/api/v1/documents",
     tags=["Documents"],
     dependencies=[Depends(require_user)],
 )
 
-# 1. Upload a Document
-@router.post("/upload/", response_model=DocumentResponse, status_code=201)
+
+@router.post(
+    "/upload/",
+    response_model=DocumentResponse,
+    status_code=201,
+    dependencies=[Depends(require_engineer)],
+)
 def upload_document(
-    product_id: int = Form(...), 
-    standard_id: Optional[int] = Form(None),
-    file: UploadFile = File(...), 
+    product_id: int = Form(...),
+    standard_id: int | None = Form(None),
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_engineer),
+    storage: Storage = Depends(get_storage),
 ):
-    # Verify the product actually exists
-    product = db.query(Product).filter(Product.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    return document_service.upload_document(db, storage, file, product_id, standard_id)
 
-    # If a standard_id was provided, verify it exists too
-    if standard_id:
-        standard = db.query(Standard).filter(Standard.id == standard_id).first()
-        if not standard:
-            raise HTTPException(status_code=404, detail="Standard not found")
 
-    # Pass the file to our service handler to save to disk
-    saved_file_path = save_upload_file(file)
+@router.get("/product/{product_id}", response_model=Page[DocumentResponse])
+def list_product_documents(
+    product_id: int,
+    page: PageParams = Depends(pagination),
+    sort: str | None = Query(None, description="Comma-separated fields; prefix - for descending"),
+    db: Session = Depends(get_db),
+):
+    items, total = document_service.list_documents(db, product_id, page, sort)
+    return make_page(items, total, page)
 
-    # Create the database record with all the metadata
-    new_document = Document(
-        filename=file.filename,
-        file_path=saved_file_path,
-        product_id=product_id,
-        standard_id=standard_id  # Save it to the database
+
+@router.get("/{document_id}", response_model=DocumentResponse)
+def get_document(document_id: int, db: Session = Depends(get_db)):
+    return document_service.get_document(db, document_id)
+
+
+@router.get("/{document_id}/download")
+def download_document(
+    document_id: int, db: Session = Depends(get_db), storage: Storage = Depends(get_storage)
+):
+    document, stream = document_service.open_document(db, storage, document_id)
+
+    def chunks():
+        with stream:
+            while chunk := stream.read(CHUNK_SIZE):
+                yield chunk
+
+    headers = {
+        # Always a download, never rendered inside this site, whatever the file is
+        "Content-Disposition": document_service.attachment_header(document.filename),
+        "X-Content-Type-Options": "nosniff",
+    }
+    if document.size_bytes is not None:
+        headers["Content-Length"] = str(document.size_bytes)
+    return StreamingResponse(
+        chunks(), media_type=document_service.media_type_for(document), headers=headers
     )
-    
-    db.add(new_document)
-    db.commit()
-    db.refresh(new_document)
-    
-    return new_document
 
-# 2. Get Documents by Product ID
-@router.get("/product/{product_id}", response_model=List[DocumentResponse])
-def get_product_documents(product_id: int, db: Session = Depends(get_db)):
-    documents = db.query(Document).filter(Document.product_id == product_id).all()
-    return documents
+
+@router.delete("/{document_id}", status_code=204, dependencies=[Depends(require_admin)])
+def delete_document(
+    document_id: int, db: Session = Depends(get_db), storage: Storage = Depends(get_storage)
+):
+    document_service.delete_document(db, storage, document_id)

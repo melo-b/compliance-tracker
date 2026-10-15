@@ -121,19 +121,20 @@ OLD_ROWS = [
 
 def seed_old_compliance_rows(connection):
     connection.execute(sa.text("INSERT INTO products (name, model_number) VALUES ('P', 'M1')"))
-    connection.execute(
-        sa.text(
-            "INSERT INTO standards (standard_number, title, issuing_body, status) "
-            "VALUES ('S1', 'T', 'CSA', 'ACTIVE')"
+    for number, (status, expiry, _) in enumerate(OLD_ROWS, start=1):
+        connection.execute(
+            sa.text(
+                "INSERT INTO standards (standard_number, title, issuing_body, status) "
+                "VALUES (:n, 'T', 'CSA', 'ACTIVE')"
+            ),
+            {"n": f"S{number}"},
         )
-    )
-    for status, expiry, _ in OLD_ROWS:
         connection.execute(
             sa.text(
                 "INSERT INTO product_compliance (product_id, standard_id, status, expiration_date) "
-                "VALUES (1, 1, :status, :expiry)"
+                "VALUES (1, :standard, :status, :expiry)"
             ),
-            {"status": status, "expiry": expiry},
+            {"standard": number, "status": status, "expiry": expiry},
         )
 
 
@@ -159,7 +160,7 @@ def test_certification_workflow_migration_converts_existing_records(alembic_cfg,
 
 
 def test_certification_workflow_migration_downgrades_without_losing_dates(alembic_cfg, db_url):
-    command.upgrade(alembic_cfg, "head")
+    command.upgrade(alembic_cfg, "0003")  # this test is about 0003, which predates the unique key
     engine = sa.create_engine(db_url)
     with engine.begin() as connection:
         connection.execute(sa.text("INSERT INTO products (name, model_number) VALUES ('P', 'M1')"))

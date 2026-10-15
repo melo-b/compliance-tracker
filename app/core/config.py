@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The development key that was committed to git history before it was moved to
@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
 
     celery_broker_url: str = "redis://localhost:6379/0"
+
+    # A final certificate expiring within this many days is reported as "Expiring Soon"
+    expiring_soon_days: int = Field(default=90, ge=1, le=3650)
 
     @field_validator("secret_key")
     @classmethod

@@ -49,3 +49,18 @@ def test_migration_url_overrides_database_url_when_set():
         migration_database_url="postgresql://direct/app",
     )
     assert settings.alembic_database_url == "postgresql://direct/app"
+
+
+def test_expiring_soon_window_defaults_to_90_days():
+    assert make_settings(secret_key=VALID_KEY).expiring_soon_days == 90
+
+
+def test_expiring_soon_window_can_be_set_from_the_environment(monkeypatch):
+    monkeypatch.setenv("EXPIRING_SOON_DAYS", "45")
+    assert make_settings(secret_key=VALID_KEY).expiring_soon_days == 45
+
+
+@pytest.mark.parametrize("value", [0, -5, 4000])
+def test_expiring_soon_window_must_be_a_sensible_number_of_days(value):
+    with pytest.raises(ValidationError):
+        make_settings(secret_key=VALID_KEY, expiring_soon_days=value)

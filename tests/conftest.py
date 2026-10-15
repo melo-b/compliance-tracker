@@ -17,6 +17,8 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.database import get_db
 from app.main import app
+from app.models.product import Product
+from app.models.standard import ProductCompliance, Standard, WorkflowStatus
 from app.models.user import User, UserRole
 from tests.helpers import TEST_PASSWORD, bearer
 
@@ -99,3 +101,28 @@ def engineer_headers(make_user):
 @pytest.fixture
 def readonly_headers(make_user):
     return bearer(make_user(UserRole.READ_ONLY))
+
+
+@pytest.fixture
+def make_compliance(db_session):
+    """Factory: make_compliance(workflow_status=..., expiration_date=...) -> persisted record."""
+    counter = itertools.count(1)
+
+    def _make(workflow_status=WorkflowStatus.PENDING, **fields):
+        n = next(counter)
+        product = Product(name=f"Product {n}", model_number=f"MODEL-{n}")
+        standard = Standard(standard_number=f"STD-{n}", title=f"Standard {n}", issuing_body="CSA")
+        db_session.add_all([product, standard])
+        db_session.flush()
+        record = ProductCompliance(
+            product_id=product.id,
+            standard_id=standard.id,
+            workflow_status=workflow_status,
+            **fields,
+        )
+        db_session.add(record)
+        db_session.commit()
+        db_session.refresh(record)
+        return record
+
+    return _make

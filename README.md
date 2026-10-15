@@ -37,6 +37,8 @@ New accounts are created as **Read-only**. An admin promotes them. Roles are che
 |---|:-:|:-:|:-:|
 | View products, standards, compliance records, documents | ✅ | ✅ | ✅ |
 | Create / edit products and compliance records, upload documents | ✅ | ✅ | ❌ |
+| Move a certification forward one workflow step (Pending → Draft → Final) | ✅ | ✅ | ❌ |
+| Move a certification backward (to correct a mistake) | ✅ | ❌ | ❌ |
 | Delete products, compliance records | ✅ | ❌ | ❌ |
 | Create / edit / delete standards | ✅ | ❌ | ❌ |
 | Trigger the expiry scan, list users, change roles, deactivate users | ✅ | ❌ | ❌ |
@@ -48,6 +50,31 @@ Public endpoints: `POST /api/v1/auth/register/`, `POST /api/v1/auth/login/`, `GE
 ```bash
 uv run python -m app.scripts.create_admin --email you@example.com
 ```
+
+## 📋 Certification Workflow
+
+Each product-to-standard record (`/api/v1/standards/compliance/`) tracks a certification project through three stages, set by people:
+
+```text
+Pending  ──►  Draft  ──►  Final
+(waiting on   (certificate   (certificate
+ the agency)   drafted)       issued)
+```
+
+* Records are created as **Pending**. `POST /api/v1/standards/compliance/{id}/transition` with `{"target": "Draft"}` moves a record one step at a time; skipping a step returns `409`. Only admins can move a record backward.
+* **Validity is computed, never stored.** Once a record is **Final**, the API adds `validity` and `days_until_expiry`, worked out from `expiration_date` and today's date (UTC), so it can never be stale and needs no background job:
+
+| Record | `validity` |
+|---|---|
+| Pending or Draft | `null` (nothing has been issued yet) |
+| Final, no expiration date | `Valid` (shown as "Valid – No expiry") |
+| Final, expires in more than 90 days | `Valid` |
+| Final, expires within 90 days (including the expiry day) | `Expiring Soon` |
+| Final, expiration date has passed | `Expired` |
+
+The 90-day window is the `EXPIRING_SOON_DAYS` setting. Certificate details (`certificate_number`, `agency`, `issued_date`, `expiration_date`) are editable with `PATCH`; the workflow status is not.
+
+The Celery task `scan_expiring_compliance_records` (admin-triggered via `POST .../compliance/scan/`) builds a read-only report of final certificates that have expired or are expiring soon. It never modifies records, and it needs a Redis broker and worker, so it is available locally with Docker Compose but not on the free hosted demo (the endpoint returns `503` there).
 
 ## 📂 Architecture & Project Structure
 

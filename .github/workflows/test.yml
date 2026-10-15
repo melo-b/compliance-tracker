@@ -48,6 +48,8 @@ jobs:
         env:
           DATABASE_URL: ${{ env.CI_DATABASE_URL }}
           SECRET_KEY: ${{ env.CI_SECRET_KEY }}
+          # Opt-in for the PostgreSQL migration tests (they use a temporary schema)
+          TEST_POSTGRES_URL: ${{ env.CI_DATABASE_URL }}
         run: uv run pytest -v
 
       # 2. Prove the migrations build the schema on real PostgreSQL and match the models

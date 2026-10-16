@@ -25,6 +25,7 @@ app.include_router(routes_auth.router)
 app.include_router(routes_users.router)
 app.include_router(routes_dashboard.router)
 
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Compliance Tracker"}

@@ -8,6 +8,7 @@ The password is read from the ADMIN_PASSWORD environment variable if set, otherw
 prompted for without echo. It is never accepted as a command-line argument, so it cannot end
 up in shell history or process listings.
 """
+
 import argparse
 import getpass
 import os

@@ -19,6 +19,7 @@ from app.services.compliance_logic import Validity, compute_validity, days_until
 # Represents the actual standards (e.g., UL, CSA, IEC)
 # ==========================================
 
+
 class StandardBase(BaseModel):
     standard_number: str = Field(
         ..., description="The official alphanumeric designation (e.g., UL 508, CSA C22.2 No. 14)"
@@ -69,9 +70,7 @@ class StandardSummary(BaseModel):
 # (Pending -> Draft -> Final) and, once final, the certificate's expiry.
 # ==========================================
 
-TrimmedText = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
-]
+TrimmedText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 
 class ProductComplianceBase(BaseModel):

@@ -3,6 +3,7 @@
 Everything here is a pure function of its arguments (no database access, no hidden clock
 unless `today` is omitted), which keeps the rules easy to test exhaustively.
 """
+
 import enum
 from datetime import UTC, date, datetime
 

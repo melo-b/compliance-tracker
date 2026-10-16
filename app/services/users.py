@@ -71,9 +71,7 @@ def list_users(
     return paginate(db, statement, page)
 
 
-def admin_update_user(
-    db: Session, admin: User, user_id: int, update: UserAdminUpdate
-) -> User:
+def admin_update_user(db: Session, admin: User, user_id: int, update: UserAdminUpdate) -> User:
     # Blocking self-edits means an admin cannot demote or disable themselves and lock
     # everyone out of administration.
     if user_id == admin.id:

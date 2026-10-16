@@ -15,6 +15,7 @@ Revision ID: 0003
 Revises: 0002
 Create Date: 2026-10-14
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -56,9 +57,7 @@ def downgrade() -> None:
     old_status.create(bind, checkfirst=True)
 
     with op.batch_alter_table("product_compliance") as batch:
-        batch.add_column(
-            sa.Column("status", old_status, nullable=False, server_default="PENDING")
-        )
+        batch.add_column(sa.Column("status", old_status, nullable=False, server_default="PENDING"))
 
     # Rebuild the stored status from the computed one. The old "Expiring Soon" state was a
     # worker-maintained flag, so it is not reconstructed here: such records come back as Valid.

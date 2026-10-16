@@ -9,7 +9,7 @@ against both).
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from sqlalchemy import ColumnElement, and_, case, or_, select
+from sqlalchemy import SQLColumnExpression, and_, case, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -66,7 +66,7 @@ def with_relations():
 
 def validity_clause(
     validity: Validity, today: date, window_days: int | None = None
-) -> ColumnElement[bool]:
+) -> SQLColumnExpression[bool]:
     """SQL condition for "this record is currently <validity>". Same rule as compute_validity."""
     window = get_settings().expiring_soon_days if window_days is None else window_days
     soon_limit = today + timedelta(days=window)

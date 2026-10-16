@@ -1,12 +1,15 @@
 # Compliance Tracker API
 
+[![CI](https://github.com/melo-b/compliance-tracker/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/melo-b/compliance-tracker/actions/workflows/ci.yml)
+[![Security audit](https://github.com/melo-b/compliance-tracker/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/melo-b/compliance-tracker/actions/workflows/security.yml)
+
 A production-grade backend service designed to manage product safety lifecycles, regulatory standards mapping, and certification expirations for the Testing, Inspection, and Certification (TIC) industry.
 
 🌐 **Live Demo & API Docs:** [https://compliance-api-xf2x.onrender.com/docs](https://compliance-api-xf2x.onrender.com/docs)
 
 ## 📖 Domain Context
 
-Drawing from direct experience as a Product Safety Engineer at CSA Group, this API was built to solve tangible challenges in compliance workflows. Tracking product certifications, managing evolving safety standards, and preventing certification expirations are critical bottlenecks in mechanical engineering and product manufacturing. 
+Drawing from direct experience as a Product Safety Engineer at CSA Group, this API was built to solve tangible challenges in compliance workflows. Tracking product certifications, managing evolving safety standards, and preventing certification expirations are critical bottlenecks in mechanical engineering and product manufacturing.
 
 This project bridges that domain expertise with scalable backend architecture, demonstrating how complex regulatory mapping and asynchronous task management can be solved through software.
 
@@ -18,7 +21,7 @@ This project bridges that domain expertise with scalable backend architecture, d
 * **Asynchronous Workers:** Celery + Redis (Message Broker)
 * **Security:** JWT (PyJWT), Argon2id password hashing (pwdlib), role-based access control
 * **Testing:** Pytest, In-Memory SQLite Fixtures
-* **Tooling:** Python 3.12, uv (dependency management and lockfile), Ruff
+* **Tooling:** Python 3.12, uv (dependency management and lockfile), Ruff (lint and format), mypy, pytest-cov, pre-commit, Dependabot, pip-audit
 * **Infrastructure:** Docker & Docker Compose
 
 
@@ -123,6 +126,29 @@ Duplicate product/standard mappings are also blocked by a database constraint, s
 * `GET /api/v1/documents/{id}/download` always sends the file as an attachment with `nosniff`, so an uploaded file can never run inside this site. `DELETE` (admin) removes the row and the file; deleting a product removes its files.
 * **Storage:** files go through a small `Storage` interface (`app/services/storage.py`), with a local-disk implementation today so object storage can replace it later. **On the free Render tier the disk is wiped on every deploy**, so uploaded files there are temporary: the database rows survive and a download reports that the file is no longer available.
 
+## ✅ Quality Gates
+
+Every pull request must pass these checks before it can be merged into `main`; they run in parallel in GitHub Actions (`.github/workflows/ci.yml`):
+
+| CI job | What it proves | Run it locally |
+|---|---|---|
+| **Lint and type check** | Code style and formatting (Ruff) and static types (mypy) are clean | `uv run ruff check .` · `uv run ruff format --check .` · `uv run mypy` |
+| **Tests (SQLite, coverage)** | The whole suite passes and **coverage stays at or above 90%** (lines and branches; currently 100%) | `uv run pytest --cov` |
+| **Tests (PostgreSQL)** | The same suite passes on PostgreSQL, the production database | see below |
+| **Migrations (PostgreSQL)** | The schema builds from empty, matches the models, and every migration can be undone and redone | `uv run alembic upgrade head && uv run alembic check` |
+| **Docker image** | The image builds, starts, runs its migrations and answers requests, both normally and exactly the way Render starts it | `docker compose up --build` |
+
+A separate weekly **Security audit** workflow checks the pinned production dependencies against known vulnerabilities (`pip-audit`), and **Dependabot** opens weekly pull requests for dependency, GitHub Actions and Docker base-image updates. Neither blocks unrelated work: a newly published advisory shows up as an alert, not as a failed pull request.
+
+**Running tests against PostgreSQL.** The suite uses an in-memory SQLite database by default. Set `TEST_POSTGRES_URL` to a *throwaway* PostgreSQL database to run it there instead; the tests work inside a temporary schema that is dropped afterwards. It is deliberately a separate variable from `DATABASE_URL`, so a leftover production URL in your terminal can never be touched by the tests.
+
+**Pre-commit (optional).** Run the quick checks automatically before each commit:
+
+```bash
+uv run pre-commit install        # once
+uv run pre-commit run --all-files
+```
+
 ## 📂 Architecture & Project Structure
 
 The codebase follows an "Inside-Out" decoupled architecture, ensuring clean separation of concerns between routing, business logic, and database transactions.
@@ -154,7 +180,7 @@ uv run python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 3. Spin up the Infrastructure
 Build and launch the complete ecosystem using Docker Compose. Database migrations are applied automatically when the API container starts:
-docker-compose up -d --build 
+docker-compose up -d --build
 
 4. View the Documentation
 Navigate to http://localhost:8000/docs in your browser to interact with the auto-generated Swagger UI documentation. Health checks: GET /health (liveness) and GET /health/ready (database reachable).
@@ -174,4 +200,3 @@ Set MIGRATION_DATABASE_URL to a direct (non-pooled) connection if DATABASE_URL p
 uv add <package>          # runtime dependency
 uv add --dev <package>    # development dependency
 uv lock --upgrade         # refresh uv.lock
-

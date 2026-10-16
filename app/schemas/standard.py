@@ -86,7 +86,7 @@ class ProductComplianceBase(BaseModel):
     )
 
 
-class _DatesInOrder(BaseModel):
+class _DatesInOrder(ProductComplianceBase):
     @model_validator(mode="after")
     def _expiry_not_before_issue(self):
         issued, expires = self.issued_date, self.expiration_date
@@ -95,7 +95,7 @@ class _DatesInOrder(BaseModel):
         return self
 
 
-class ProductComplianceCreate(ProductComplianceBase, _DatesInOrder):
+class ProductComplianceCreate(_DatesInOrder):
     """New records always start as Pending; use the transition endpoint to move them on."""
 
     model_config = ConfigDict(extra="forbid")
@@ -104,7 +104,7 @@ class ProductComplianceCreate(ProductComplianceBase, _DatesInOrder):
     standard_id: int = Field(..., description="The ID of the regulatory standard")
 
 
-class ProductComplianceUpdate(ProductComplianceBase, _DatesInOrder):
+class ProductComplianceUpdate(_DatesInOrder):
     """Edits certificate details. The workflow status cannot be changed here."""
 
     model_config = ConfigDict(extra="forbid")
@@ -126,12 +126,12 @@ class ProductComplianceResponse(ProductComplianceBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @computed_field(description="Valid / Expiring Soon / Expired. Only present once Final")
+    @computed_field(description="Valid / Expiring Soon / Expired. Only present once Final")  # type: ignore[prop-decorator]
     @property
     def validity(self) -> Validity | None:
         return compute_validity(self.workflow_status, self.expiration_date)
 
-    @computed_field(description="Days until expiry (negative once expired); null if none")
+    @computed_field(description="Days until expiry (negative once expired); null if none")  # type: ignore[prop-decorator]
     @property
     def days_until_expiry(self) -> int | None:
         return days_until_expiry(self.expiration_date)

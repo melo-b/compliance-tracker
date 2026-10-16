@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, func, select
+from sqlalchemy import Select, SQLColumnExpression, func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import InvalidRequestError
@@ -13,9 +13,9 @@ from app.schemas.pagination import PageParams
 def apply_sorting(
     statement: Select,
     sort: str | None,
-    allowed: Mapping[str, ColumnElement[Any]],
+    allowed: Mapping[str, SQLColumnExpression[Any]],
     default: str,
-    tiebreaker: ColumnElement[Any] | None = None,
+    tiebreaker: SQLColumnExpression[Any] | None = None,
 ) -> Select:
     """Orders `statement` by a comma-separated `sort` such as "-expiration_date,name".
 
@@ -49,7 +49,7 @@ def paginate(db: Session, statement: Select, page: PageParams) -> tuple[list, in
     return list(rows), total or 0
 
 
-def contains(column: ColumnElement[str], text: str) -> ColumnElement[bool]:
+def contains(column: SQLColumnExpression[Any], text: str) -> SQLColumnExpression[bool]:
     """Case-insensitive "contains" match that treats % and _ in the text literally."""
     escape = "\\"
     escaped = text.replace(escape, escape * 2).replace("%", escape + "%").replace("_", escape + "_")

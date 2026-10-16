@@ -1,0 +1,48 @@
+name: Security
+
+# Scans the pinned dependencies for known vulnerabilities. It is deliberately a separate
+# workflow and not a required check: a new advisory published today should show up as a
+# weekly alert, not block an unrelated pull request.
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays, 06:17 UTC
+  push:
+    branches:
+      - main
+    paths:
+      - uv.lock
+      - pyproject.toml
+  pull_request:
+    paths:
+      - uv.lock
+      - pyproject.toml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install Dependencies
+        run: uv sync --locked
+
+      # Only what ships to production (no dev tools), with the exact pinned versions and hashes
+      - name: Export the production dependencies
+        run: uv export --locked --no-dev --no-emit-project --format requirements-txt -o audit-requirements.txt
+
+      - name: Audit against the PyPI advisory database
+        run: uv run pip-audit --requirement audit-requirements.txt --no-deps --disable-pip --strict

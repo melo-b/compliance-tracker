@@ -51,7 +51,9 @@ class UnsupportedMediaError(AppError):
     code = "unsupported_media_type"
 
 
-async def _handle_app_error(request: Request, error: AppError) -> JSONResponse:
+async def _handle_app_error(request: Request, error: Exception) -> JSONResponse:
+    if not isinstance(error, AppError):  # only registered for AppError; this narrows the type
+        raise error  # pragma: no cover
     return JSONResponse(
         status_code=error.status_code, content={"detail": error.detail, "code": error.code}
     )

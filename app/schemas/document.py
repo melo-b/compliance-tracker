@@ -16,7 +16,7 @@ class DocumentResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @computed_field(description="Where to download the file (requires login)")
+    @computed_field(description="Where to download the file (requires login)")  # type: ignore[prop-decorator]
     @property
     def download_url(self) -> str:
         return f"/api/v1/documents/{self.id}/download"

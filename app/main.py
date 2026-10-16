@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 # Registers every model on Base.metadata so SQLAlchemy can resolve relationships.
 # Tables are created by Alembic migrations (`alembic upgrade head`), not at import time.
-import app.models  # noqa: F401
+import app.models as _models  # noqa: F401
 from app.api import (
     routes_auth,
     routes_dashboard,

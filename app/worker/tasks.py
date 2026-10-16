@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -9,14 +9,17 @@ from app.services.compliance_logic import Validity, compute_validity, days_until
 from app.worker.celery_app import celery_app
 
 
-def _describe(record: ProductCompliance, today) -> dict:
+def _describe(record: ProductCompliance, today: date) -> dict:
     """JSON-serialisable summary of a record for the report."""
+    expires = record.expiration_date
+    if expires is None:  # the scan only selects records that have an expiration date
+        raise ValueError(f"Compliance record {record.id} has no expiration date")
     return {
         "id": record.id,
         "product_id": record.product_id,
         "standard_id": record.standard_id,
         "certificate_number": record.certificate_number,
-        "expiration_date": record.expiration_date.isoformat(),
+        "expiration_date": expires.isoformat(),
         "days_until_expiry": days_until_expiry(record.expiration_date, today),
     }
 
@@ -56,9 +59,12 @@ def scan_expiring_compliance_records(days_threshold: int | None = None):
             validity = compute_validity(
                 record.workflow_status, record.expiration_date, today, window
             )
+            # The query only returns final records expiring within the window or already past
+            # it, so each one is in exactly one of the two groups
+            assert validity in (Validity.EXPIRED, Validity.EXPIRING_SOON)
             if validity == Validity.EXPIRED:
                 expired.append(_describe(record, today))
-            elif validity == Validity.EXPIRING_SOON:
+            else:
                 expiring_soon.append(_describe(record, today))
 
         return {

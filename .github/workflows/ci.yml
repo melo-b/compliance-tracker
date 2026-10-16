@@ -1,4 +1,4 @@
-name: CI Test Suite
+name: CI
 
 on:
   push:
@@ -8,16 +8,93 @@ on:
     branches:
       - main
 
+# The workflow only reads the repository; nothing here needs to write to it
+permissions:
+  contents: read
+
+# A new push to a pull request cancels the run it makes obsolete (runs on main always finish)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 env:
-  # Throwaway values for CI only; the Postgres service below is destroyed after each run.
+  # Throwaway values for CI only; the Postgres services below are destroyed after each run.
   CI_DATABASE_URL: postgresql://postgres:supersecret@localhost:5432/compliance_db
   CI_SECRET_KEY: ci-only-secret-key-not-a-real-secret-0123456789abcdef
+  # Make every uv command refuse to run if uv.lock is out of date with pyproject.toml
+  UV_LOCKED: "1"
 
 jobs:
-  test:
+  # The fastest checks run first so a style or typing slip fails in seconds
+  lint:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install Dependencies
+        run: uv sync
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: mypy
+        run: uv run mypy
+
+  test-sqlite:
+    name: Tests (SQLite, coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install Dependencies
+        run: uv sync
+
+      # Fails the build if total coverage (lines and branches) is below fail_under in pyproject.toml
+      - name: Run Pytest with coverage
+        env:
+          SECRET_KEY: ${{ env.CI_SECRET_KEY }}
+        run: uv run pytest -v --cov --cov-report=xml
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          echo "### Test coverage" >> "$GITHUB_STEP_SUMMARY"
+          uv run coverage report --format=markdown --skip-covered >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  test-postgres:
+    name: Tests (PostgreSQL)
     runs-on: ubuntu-latest
 
-    # 1. Spin up a temporary PostgreSQL database for the CI pipeline
     services:
       postgres:
         image: postgres:15
@@ -42,36 +119,67 @@ jobs:
         run: uv python install
 
       - name: Install Dependencies
-        run: uv sync --locked
-
-      # Fast run: in-memory SQLite
-      - name: Run Pytest (SQLite)
-        env:
-          SECRET_KEY: ${{ env.CI_SECRET_KEY }}
-        run: uv run pytest -v
+        run: uv sync
 
       # The same suite against PostgreSQL, the production database. TEST_POSTGRES_URL switches
       # the test database over and the tests work in a temporary schema that is dropped after.
-      - name: Run Pytest (PostgreSQL)
+      - name: Run Pytest
         env:
           SECRET_KEY: ${{ env.CI_SECRET_KEY }}
           TEST_POSTGRES_URL: ${{ env.CI_DATABASE_URL }}
         run: uv run pytest -v
 
-      # 2. Prove the migrations build the schema on real PostgreSQL and match the models
-      - name: Apply migrations to PostgreSQL
+  migrations:
+    name: Migrations (PostgreSQL)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
         env:
-          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
-          SECRET_KEY: ${{ env.CI_SECRET_KEY }}
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: supersecret
+          POSTGRES_DB: compliance_db
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    # (the job-level env block cannot read the workflow-level one, so these repeat the values)
+    env:
+      DATABASE_URL: postgresql://postgres:supersecret@localhost:5432/compliance_db
+      SECRET_KEY: ci-only-secret-key-not-a-real-secret-0123456789abcdef
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install Dependencies
+        run: uv sync
+
+      # The schema builds on an empty PostgreSQL and matches the models
+      - name: Apply migrations
         run: uv run alembic upgrade head
 
       - name: Check for schema drift
-        env:
-          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
-          SECRET_KEY: ${{ env.CI_SECRET_KEY }}
         run: uv run alembic check
 
+      # Every migration can be undone and redone, so a bad deploy can be rolled back
+      - name: Downgrade to empty and upgrade again
+        run: |
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+          uv run alembic check
+
   docker:
+    name: Docker image
     runs-on: ubuntu-latest
 
     services:

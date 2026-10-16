@@ -1,6 +1,7 @@
 import enum
 
-from sqlalchemy import Boolean, Column, Enum, Integer, String
+from sqlalchemy import Enum
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 
@@ -14,14 +15,13 @@ class UserRole(enum.StrEnum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(unique=True, index=True)
+    hashed_password: Mapped[str]
+    is_active: Mapped[bool | None] = mapped_column(default=True)
     # New accounts are read-only until an admin promotes them
-    role = Column(
+    role: Mapped[UserRole] = mapped_column(
         Enum(UserRole),
         default=UserRole.READ_ONLY,
         server_default=UserRole.READ_ONLY.name,
-        nullable=False,
     )

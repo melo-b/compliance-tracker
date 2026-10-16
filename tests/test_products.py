@@ -37,7 +37,7 @@ def test_duplicate_model_number_is_rejected(client, engineer_headers):
     client.post("/api/v1/products/", json=PAYLOAD, headers=engineer_headers)
     response = client.post("/api/v1/products/", json=PAYLOAD, headers=engineer_headers)
 
-    assert response.status_code == 400
+    assert response.status_code == 409
 
 
 def test_every_role_can_read_products(client, engineer_headers, readonly_headers, admin_headers):
@@ -46,7 +46,7 @@ def test_every_role_can_read_products(client, engineer_headers, readonly_headers
     for headers in (readonly_headers, engineer_headers, admin_headers):
         response = client.get("/api/v1/products/", headers=headers)
         assert response.status_code == 200
-        assert [p["model_number"] for p in response.json()] == ["RELAY-100"]
+        assert [p["model_number"] for p in response.json()["items"]] == ["RELAY-100"]
 
 
 def test_get_product_by_id_and_missing_product(client, engineer_headers, readonly_headers):

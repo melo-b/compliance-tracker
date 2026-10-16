@@ -1,17 +1,26 @@
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import relationship
+from typing import TYPE_CHECKING
+
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.document import Document
+    from app.models.standard import ProductCompliance
 
 
 class Product(Base):
     __tablename__ = "products"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    model_number = Column(String, unique=True, index=True, nullable=False)
-    description = Column(String, nullable=True)
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str]
+    model_number: Mapped[str] = mapped_column(unique=True, index=True)
+    description: Mapped[str | None]
 
     # Relationships
-    compliance_records = relationship("ProductCompliance", back_populates="product", cascade="all, delete-orphan")
-    documents = relationship("Document", back_populates="product", cascade="all, delete-orphan")
-    
+    compliance_records: Mapped[list["ProductCompliance"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan"
+    )
+    documents: Mapped[list["Document"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan"
+    )

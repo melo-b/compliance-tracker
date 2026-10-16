@@ -12,7 +12,9 @@ _MIN_SECRET_KEY_LENGTH = 32
 class Settings(BaseSettings):
     """Application settings, read from environment variables (and a local .env file)."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # hide_input_in_errors: a validation error must never print the rejected value, because
+    # it is usually a password or a key
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     # Defaults match the docker-compose database mapped to host port 5433
     database_url: str = "postgresql://postgres:password123@localhost:5433/compliance_db"
@@ -29,6 +31,27 @@ class Settings(BaseSettings):
 
     # A final certificate expiring within this many days is reported as "Expiring Soon"
     expiring_soon_days: int = Field(default=90, ge=1, le=3650)
+
+    # Uploaded documents. The local disk is wiped on every Render deploy (free tier), so treat
+    # it as temporary there; see app/services/storage.py for the storage abstraction.
+    upload_dir: str = "uploads"
+    max_upload_bytes: int = Field(default=10 * 1024 * 1024, ge=1024, le=100 * 1024 * 1024)
+
+    @field_validator("database_url", "migration_database_url")
+    @classmethod
+    def _validate_database_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        # Hosting platforms often hand out "postgres://", which SQLAlchemy 2 does not accept
+        if value.startswith("postgres://"):
+            value = "postgresql://" + value[len("postgres://"):]
+        if not value.startswith(("postgresql://", "postgresql+", "sqlite:")):
+            # Deliberately does not echo the value: it normally contains the password
+            raise ValueError(
+                "must be a database URL starting with postgresql:// "
+                "(check the value was copied in full, without quotes or a leading 'psql' command)"
+            )
+        return value
 
     @field_validator("secret_key")
     @classmethod

@@ -1,15 +1,17 @@
 import os
 
 # Settings are read when the app is first imported, so provide test values up front.
-# The database is never actually contacted: tests override get_db with an in-memory SQLite DB.
+# Tests override get_db with the test database below, so DATABASE_URL is never contacted.
 os.environ.setdefault("SECRET_KEY", "test-only-secret-key-not-for-production-0123456789")
 os.environ.setdefault("DATABASE_URL", "sqlite:///./unused-test.db")
 
 import itertools
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -22,14 +24,34 @@ from app.models.standard import ProductCompliance, Standard, WorkflowStatus
 from app.models.user import User, UserRole
 from tests.helpers import TEST_PASSWORD, bearer
 
-# 1. Setup in-memory SQLite database for fast, isolated testing
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+# 1. The test database.
+# By default an in-memory SQLite database: fast, and nothing to install. Set TEST_POSTGRES_URL
+# (CI does) to run the whole suite against PostgreSQL instead, the production database, inside
+# a temporary schema that is dropped afterwards. It is deliberately not read from DATABASE_URL,
+# so a leftover production URL in your terminal can never be touched by the tests.
+TEST_POSTGRES_URL = os.environ.get("TEST_POSTGRES_URL")
+USING_POSTGRES = bool(TEST_POSTGRES_URL)
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+if USING_POSTGRES:
+    _SCHEMA = f"pytest_{uuid.uuid4().hex[:12]}"
+    _base_url = make_url(TEST_POSTGRES_URL)
+    with create_engine(_base_url).begin() as _connection:
+        _connection.execute(text(f'CREATE SCHEMA "{_SCHEMA}"'))
+    engine = create_engine(_base_url.update_query_dict({"options": f"-csearch_path={_SCHEMA}"}))
+
+    @pytest.fixture(scope="session", autouse=True)
+    def _drop_test_schema():
+        yield
+        engine.dispose()
+        with create_engine(_base_url).begin() as connection:
+            connection.execute(text(f'DROP SCHEMA IF EXISTS "{_SCHEMA}" CASCADE'))
+
+else:
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # 2. Database Fixture

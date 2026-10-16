@@ -7,9 +7,9 @@ def test_admin_can_list_users(client, admin_headers, make_user):
     response = client.get("/api/v1/users/", headers=admin_headers)
 
     assert response.status_code == 200
-    emails = [u["email"] for u in response.json()]
+    emails = [u["email"] for u in response.json()["items"]]
     assert "viewer@example.com" in emails
-    assert all("hashed_password" not in u for u in response.json())
+    assert all("hashed_password" not in u for u in response.json()["items"])
 
 
 def test_me_returns_the_callers_own_profile_and_role(client, make_user):
@@ -48,7 +48,7 @@ def test_admin_can_deactivate_a_user(client, admin_headers, make_user):
 def test_admin_cannot_change_their_own_role_or_status(client, admin_headers, admin_user):
     for body in ({"role": "read_only"}, {"is_active": False}):
         response = client.patch(f"/api/v1/users/{admin_user.id}", json=body, headers=admin_headers)
-        assert response.status_code == 400
+        assert response.status_code == 422
 
 
 def test_updating_a_missing_user_is_404(client, admin_headers):

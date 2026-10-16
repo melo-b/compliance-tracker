@@ -38,7 +38,12 @@ MATRIX = [
     ("POST", "/api/v1/standards/compliance/scan/", ADMIN_ONLY),
     # documents
     ("GET", "/api/v1/documents/product/1", ANY),
+    ("GET", "/api/v1/documents/1", ANY),
+    ("GET", "/api/v1/documents/1/download", ANY),
+    ("DELETE", "/api/v1/documents/1", ADMIN_ONLY),
     ("POST", "/api/v1/documents/upload/", ENGINEER_UP),
+    # dashboard
+    ("GET", "/api/v1/dashboard/summary", ANY),
     # users
     ("GET", "/api/v1/users/me", ANY),
     ("GET", "/api/v1/users/", ADMIN_ONLY),

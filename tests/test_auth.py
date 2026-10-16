@@ -60,7 +60,7 @@ def test_register_rejects_invalid_email(client):
 
 def test_register_rejects_duplicate_email_case_insensitively(client):
     assert register(client, email="alice@example.com").status_code == 201
-    assert register(client, email="ALICE@Example.com").status_code == 400
+    assert register(client, email="ALICE@Example.com").status_code == 409
 
 
 # --- login ---

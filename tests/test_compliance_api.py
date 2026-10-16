@@ -128,8 +128,8 @@ def test_responses_include_computed_validity(
     record = make_compliance(status, expiration_date=expiry)
 
     body = client.get(f"{COMPLIANCE}product/{record.product_id}", headers=readonly_headers).json()[
-        0
-    ]
+        "items"
+    ][0]
 
     assert body["validity"] == validity
     assert body["days_until_expiry"] == days
@@ -167,9 +167,9 @@ def test_the_workflow_status_cannot_be_changed_by_editing(
 
     assert response.status_code == 422
     assert (
-        client.get(f"{COMPLIANCE}product/{record.product_id}", headers=engineer_headers).json()[0][
-            "workflow_status"
-        ]
+        client.get(f"{COMPLIANCE}product/{record.product_id}", headers=engineer_headers).json()[
+            "items"
+        ][0]["workflow_status"]
         == "Pending"
     )
 

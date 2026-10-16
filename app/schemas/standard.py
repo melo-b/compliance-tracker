@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Annotated, Optional
+from typing import Annotated
 
 from pydantic import (
     BaseModel,
@@ -11,8 +11,8 @@ from pydantic import (
 )
 
 from app.models.standard import StandardStatus, WorkflowStatus
+from app.schemas.product import ProductSummary
 from app.services.compliance_logic import Validity, compute_validity, days_until_expiry
-
 
 # ==========================================
 # 1. REGULATORY STANDARD SCHEMAS
@@ -20,27 +20,46 @@ from app.services.compliance_logic import Validity, compute_validity, days_until
 # ==========================================
 
 class StandardBase(BaseModel):
-    standard_number: str = Field(..., description="The official alphanumeric designation (e.g., UL 508, CSA C22.2 No. 14)")
+    standard_number: str = Field(
+        ..., description="The official alphanumeric designation (e.g., UL 508, CSA C22.2 No. 14)"
+    )
     title: str = Field(..., description="The formal title of the regulatory standard")
-    publication_date: Optional[date] = Field(None, description="Date the standard was published")
-    effective_date: Optional[date] = Field(None, description="Date the standard goes into effect")
-    issuing_body: str = Field(..., description="The organization issuing the standard (e.g., CSA, UL, CE)")
-    status: StandardStatus = Field(default=StandardStatus.ACTIVE, description="Current lifecycle status of the standard")
+    publication_date: date | None = Field(None, description="Date the standard was published")
+    effective_date: date | None = Field(None, description="Date the standard goes into effect")
+    issuing_body: str = Field(
+        ..., description="The organization issuing the standard (e.g., CSA, UL, CE)"
+    )
+    status: StandardStatus = Field(
+        default=StandardStatus.ACTIVE, description="Current lifecycle status of the standard"
+    )
+
 
 class StandardCreate(StandardBase):
     pass
 
+
 class StandardUpdate(BaseModel):
-    standard_number: Optional[str] = None
-    title: Optional[str] = None
-    publication_date: Optional[date] = None
-    effective_date: Optional[date] = None
-    issuing_body: Optional[str] = None
-    status: Optional[StandardStatus] = None
+    standard_number: str | None = None
+    title: str | None = None
+    publication_date: date | None = None
+    effective_date: date | None = None
+    issuing_body: str | None = None
+    status: StandardStatus | None = None
+
 
 class StandardResponse(StandardBase):
     id: int
-    
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StandardSummary(BaseModel):
+    """The few standard fields shown next to a compliance record."""
+
+    id: int
+    standard_number: str
+    title: str
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -103,6 +122,8 @@ class ProductComplianceResponse(ProductComplianceBase):
     product_id: int
     standard_id: int
     workflow_status: WorkflowStatus
+    product: ProductSummary
+    standard: StandardSummary
 
     model_config = ConfigDict(from_attributes=True)
 

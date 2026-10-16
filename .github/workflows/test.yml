@@ -44,11 +44,17 @@ jobs:
       - name: Install Dependencies
         run: uv sync --locked
 
-      - name: Run Pytest
+      # Fast run: in-memory SQLite
+      - name: Run Pytest (SQLite)
         env:
-          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
           SECRET_KEY: ${{ env.CI_SECRET_KEY }}
-          # Opt-in for the PostgreSQL migration tests (they use a temporary schema)
+        run: uv run pytest -v
+
+      # The same suite against PostgreSQL, the production database. TEST_POSTGRES_URL switches
+      # the test database over and the tests work in a temporary schema that is dropped after.
+      - name: Run Pytest (PostgreSQL)
+        env:
+          SECRET_KEY: ${{ env.CI_SECRET_KEY }}
           TEST_POSTGRES_URL: ${{ env.CI_DATABASE_URL }}
         run: uv run pytest -v
 

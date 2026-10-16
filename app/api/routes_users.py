@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_admin
 from app.db.database import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
+from app.schemas.pagination import Page, PageParams, make_page, pagination
 from app.schemas.user import UserAdminUpdate, UserResponse
+from app.services import users as user_service
 
 router = APIRouter(
     prefix="/api/v1/users",
@@ -20,9 +22,17 @@ def read_current_user(current_user: User = Depends(get_current_user)):
 
 
 # 2. List all users (admin)
-@router.get("/", response_model=list[UserResponse], dependencies=[Depends(require_admin)])
-def list_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
-    return db.query(User).order_by(User.id).offset(skip).limit(limit).all()
+@router.get("/", response_model=Page[UserResponse], dependencies=[Depends(require_admin)])
+def list_users(
+    page: PageParams = Depends(pagination),
+    sort: str | None = Query(None, description="Comma-separated fields; prefix - for descending"),
+    q: str | None = Query(None, description="Matches part of the email address"),
+    role: UserRole | None = Query(None, description="Filter by role"),
+    is_active: bool | None = Query(None, description="Filter active or disabled accounts"),
+    db: Session = Depends(get_db),
+):
+    items, total = user_service.list_users(db, page, sort, q, role, is_active)
+    return make_page(items, total, page)
 
 
 # 3. Change another user's role or active flag (admin)
@@ -33,23 +43,4 @@ def update_user(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    # Blocking self-edits means an admin cannot demote or disable themselves and lock
-    # everyone out of administration.
-    if user_id == admin.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Admins cannot change their own role or active status",
-        )
-
-    user = db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # An explicit null is ignored: role and is_active can never be unset
-    changes = {k: v for k, v in update.model_dump(exclude_unset=True).items() if v is not None}
-    for key, value in changes.items():
-        setattr(user, key, value)
-
-    db.commit()
-    db.refresh(user)
-    return user
+    return user_service.admin_update_user(db, admin, user_id, update)

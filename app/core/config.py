@@ -44,7 +44,7 @@ class Settings(BaseSettings):
             return value
         # Hosting platforms often hand out "postgres://", which SQLAlchemy 2 does not accept
         if value.startswith("postgres://"):
-            value = "postgresql://" + value[len("postgres://"):]
+            value = "postgresql://" + value[len("postgres://") :]
         if not value.startswith(("postgresql://", "postgresql+", "sqlite:")):
             # Deliberately does not echo the value: it normally contains the password
             raise ValueError(

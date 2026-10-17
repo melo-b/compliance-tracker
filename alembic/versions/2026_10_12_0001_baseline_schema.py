@@ -10,6 +10,7 @@ Revision ID: 0001
 Revises:
 Create Date: 2026-10-12
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -77,9 +78,7 @@ def upgrade() -> None:
             sa.Column("standard_id", sa.Integer(), nullable=False),
             sa.Column(
                 "status",
-                sa.Enum(
-                    "PENDING", "VALID", "EXPIRING_SOON", "EXPIRED", name="compliancestatus"
-                ),
+                sa.Enum("PENDING", "VALID", "EXPIRING_SOON", "EXPIRED", name="compliancestatus"),
                 nullable=False,
             ),
             sa.Column("expiration_date", sa.Date(), nullable=True),

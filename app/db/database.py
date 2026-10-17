@@ -13,6 +13,7 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, pool_recycle
 # 2. Create the Session Factory (Spawns isolated sessions for API requests)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 # 3. Dependency Injection (Hands a safe session to FastAPI routes)
 def get_db():
     db = SessionLocal()

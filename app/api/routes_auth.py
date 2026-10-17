@@ -9,16 +9,17 @@ from app.services.users import authenticate_user, register_user
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
+
 # 1. Register a new user (always created as READ_ONLY; an admin can promote them)
 @router.post("/register/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     return register_user(db, email=user.email, password=user.password)
 
+
 # 2. Login to get an access token
 @router.post("/login/", response_model=Token)
 def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
+    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ):
     # OAuth2 specifies sending 'username', but we use email, so we map it here
     user = authenticate_user(db, form_data.username, form_data.password)

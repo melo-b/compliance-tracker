@@ -23,6 +23,7 @@ def login(client, email="alice@example.com", password=TEST_PASSWORD):
 
 # --- registration ---
 
+
 def test_register_creates_a_read_only_user_and_never_returns_the_password(client):
     response = register(client)
     body = response.json()
@@ -64,6 +65,7 @@ def test_register_rejects_duplicate_email_case_insensitively(client):
 
 
 # --- login ---
+
 
 def test_login_returns_a_working_bearer_token(client):
     register(client)
@@ -113,6 +115,7 @@ def test_login_upgrades_a_legacy_bcrypt_hash_to_argon2(client, make_user, db_ses
 
 
 # --- using tokens ---
+
 
 def test_protected_route_without_a_token_is_401(client):
     assert client.get(ME).status_code == 401

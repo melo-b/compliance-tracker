@@ -4,6 +4,7 @@ Every API route is listed with the roles that may call it. For each route the te
 anonymous callers get 401, roles outside the list get 403, and allowed roles are not blocked by
 authorization (they may still get 404/422 because the test sends placeholder data).
 """
+
 from types import SimpleNamespace
 
 import pytest

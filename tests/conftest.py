@@ -54,6 +54,7 @@ else:
     )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 # 2. Database Fixture
 @pytest.fixture(scope="function")
 def db_session():
@@ -66,10 +67,12 @@ def db_session():
         db.close()
         Base.metadata.drop_all(bind=engine)
 
+
 # 3. Client Fixture
 @pytest.fixture(scope="function")
 def client(db_session):
     """Overrides the database dependency to use our SQLite test DB."""
+
     def override_get_db():
         yield db_session
 
@@ -77,6 +80,7 @@ def client(db_session):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
 
 # 4. Users and tokens (real users, real signed JWTs: authentication is never mocked)
 @pytest.fixture(scope="session")

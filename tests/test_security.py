@@ -25,6 +25,7 @@ def future(minutes: int = 5) -> datetime:
 
 # --- passwords ---
 
+
 def test_new_hashes_use_argon2id():
     assert hash_password("a-long-enough-password").startswith("$argon2id$")
 
@@ -55,6 +56,7 @@ def test_unrecognised_hash_is_a_failed_login_not_a_crash():
 
 
 # --- tokens ---
+
 
 def test_token_round_trip():
     claims = decode_access_token(create_access_token(subject="42"))

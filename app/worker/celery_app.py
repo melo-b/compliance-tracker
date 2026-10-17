@@ -10,7 +10,7 @@ celery_app = Celery(
     "compliance_worker",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=['app.worker.tasks'] # Tells Celery where your task functions live
+    include=["app.worker.tasks"],  # Tells Celery where your task functions live
 )
 
 # Standard configuration for serialization and timezones
